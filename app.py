@@ -186,6 +186,10 @@ class ReviewIn(BaseModel):
 def health():
     return {"status": "ok", "service": "tasacion-visual", "models": {"vivienda_fisuras": bool(os.getenv("YOLO_VIVIENDA_WEIGHTS")), "generico": bool(os.getenv("YOLO_WEIGHTS"))}, "vision_enabled": bool(os.getenv("OPENAI_API_KEY")), "yolo_cpu_enabled": os.getenv("YOLO_CPU_ENABLED") == "1"}
 
+@app.get("/assets/hero-house.webp")
+def hero_house_asset():
+    return FileResponse(ROOT / "static" / "hero-house.webp", media_type="image/webp", headers={"Cache-Control":"public, max-age=86400"})
+
 @app.get("/", response_class=HTMLResponse)
 def home():
     return FileResponse(ROOT / "static" / "index.html")
