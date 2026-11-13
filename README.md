@@ -11,7 +11,7 @@ Sistema web en español para registrar expedientes de bienes, capturar fotograf�
 - ✅ Valor base, fuente y cálculo referencial (valor base menos ajustes confirmados).
 - ✅ Exportación PDF y JSON, auditoría por expediente, pruebas automatizadas en GitHub Actions.
 - ✅ Endpoint de salud y configuración para Render.
-- ⚠️ Inferencia YOLO es **opcional**. Solo funciona si se instalan las dependencias especializadas y se configura un archivo de pesos confiable. **No hay pesos entrenados ni métricas del modelo incluidos en este repositorio.** Las detecciones nunca descuentan valor sin revisión.
+- ✅ Adaptador de segmentación de fisuras YOLOv8n integrado y probado en GitHub Actions con pesos reales, descarga con SHA-256 e inferencia sobre imagen sintética. **El peso no se almacena en GitHub**; se descarga de su fuente pública verificando la suma SHA-256. Para utilizarlo localmente o en Render se debe instalar la dependencia opcional, descargar el modelo y establecer YOLO_VIVIENDA_WEIGHTS. Ninguna detección genera descuentos sin revisión.
 - ⚠️ Esta reconstrucción **no incluye** entrenamiento validado, segmentación con máscaras, inspección de video, comparables automáticos, cálculo bancario de crédito ni validación en campo. El README anterior describía capacidades de una entrega ZIP que no está presente en GitHub.
 
 ## Ejecutar localmente
@@ -77,4 +77,22 @@ Las pruebas cubren autenticación, creación de expedientes, revisión, valoraci
 
 ## Licencia y modelos
 
-No se incluyen pesos de terceros en este repositorio. Revisa licencias de modelos y datasets antes de entrenar, distribuir o ejecutar aplicaciones comerciales.
+No se incluyen pesos de terceros en este repositorio. El modelo de OpenSistemas tiene licencia AGPL-3.0 y se distribuye como checkpoint .pt (pickle), cuyo formato puede ejecutar código durante la carga. El checksum verifica la integridad de una versión concreta, pero no certifica que el contenido sea seguro. Revisa licencias de modelos y datasets antes de distribuir o usar comercialmente.
+
+## Inferencia especializada verificada en CI
+
+La ejecución [YOLO real inference smoke test](https://github.com/Yosep646/tasacion-banco/actions/workflows/yolo-smoke.yml) instala dependencias CPU, descarga el peso YOLOv8n-seg de OpenSistemas en `weights/vivienda-fisuras.pt`, comprueba SHA-256 `cce8b30758621622a03119677709d172f2ec1a2f0452279bda37732fcffb00af` y ejecuta inferencia sobre una imagen sintética. Primera ejecución corregida: 1 detección; workflow exitoso. **Esto es una prueba funcional, no una evaluación clínica, estructural ni de precisión del detector**. La evaluación de precisión requiere fotos representativas de viviendas reales con etiquetas de referencia.
+
+Configuración local:
+
+```bash
+pip install --index-url https://download.pytorch.org/whl/cpu torch torchvision
+pip install -r requirements-yolo.txt
+python scripts/download_fisuras.py
+# macOS/Linux
+export YOLO_VIVIENDA_WEIGHTS=weights/vivienda-fisuras.pt
+# PowerShell: $env:YOLO_VIVIENDA_WEIGHTS = 'weights/vivienda-fisuras.pt'
+uvicorn app:app --reload
+```
+
+`render-yolo.yaml` contiene el despliegue con modelo especializado, plan Standard (2 GB RAM) y disco persistente. **Implica cargos recurrentes**. Debe aprobarse en el workspace correcto, configurando una contraseña administrativa y verificando el acceso público. `render.yaml` conserva el despliegue sin instalar el modelo especializado. Ningún archivo YAML, por sí solo, significa que el servidor esté desplegado.
