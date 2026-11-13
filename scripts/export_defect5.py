@@ -8,10 +8,11 @@ import hashlib
 import urllib.request
 
 URL="https://huggingface.co/iaac-maai/day4-team1-building-defect-detector/resolve/main/model.pt"
+EXPECTED_SHA256="cdca7ae0fff9b689e96085ee940375e7c105a4401cfe9a19ebe34031a1181c7d"
 DEST=Path("weights/defect-five.pt")
 DEST.parent.mkdir(exist_ok=True,parents=True)
 def download():
-    if DEST.exists() and DEST.stat().st_size > 1_000_000:
+    if DEST.exists() and hashlib.sha256(DEST.read_bytes()).hexdigest()==EXPECTED_SHA256:
         return DEST
     temp=DEST.with_suffix(".partial")
     try:
@@ -21,6 +22,8 @@ def download():
                 total+=len(block)
                 if total>30_000_000:raise RuntimeError("Unexpectedly large checkpoint")
                 dest.write(block)
+        if hashlib.sha256(temp.read_bytes()).hexdigest()!=EXPECTED_SHA256:
+            raise RuntimeError("El archivo de pesos ha cambiado respecto al SHA256 validado")
         temp.replace(DEST)
     finally:
         temp.unlink(missing_ok=True)
