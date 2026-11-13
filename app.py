@@ -482,33 +482,6 @@ async def quick_inspection(req: Request, exterior: UploadFile = File(...),
                     except (OSError,ValueError,RuntimeError,ImportError):
                         pass
         if result is None:
-                    result = {
-                        "condition":"requiere_mejoras" if cracks else "no_determinable",
-                        "summary":("YOLO detectó "+str(len(cracks))+" posible(s) fisura(s)." if cracks
-                                   else "No se detectaron fisuras por encima del umbral; esto no prueba que la vivienda esté en buen estado."),
-                        "materials":[],
-                        "issues":[],
-                        "limitations":["YOLO solo examina posibles fisuras, no materiales ni todas las patologías."],
-                        "method":"yolo_cpu_onnx",
-                    }
-                for crack in cracks:
-                    result["issues"].append({
-                        "category":crack["category"],
-                        "severity":"no_determinada",
-                        "description":crack["description"],
-                        "improvement":crack["improvement"],
-                        "confidence":crack["confidence"],
-                        "box":crack["box"],
-                    })
-                if cracks:
-                    result["condition"]="requiere_mejoras"
-                result["yolo_detections"]=len(cracks)
-                result["annotated_url"]="/api/evidence/"+photo["id"]+"/yolo-overlay"
-                if result["method"]=="multimodal_visual":
-                    result["method"]="multimodal_visual+yolo_cpu_onnx"
-            except (OSError,ValueError,RuntimeError,ImportError) as exc:
-                error = (error+"; " if error else "")+"No fue posible ejecutar YOLO"
-        if result is None:
             result={"condition":"no_determinable","summary":"No se pudo completar la inferencia visual.",
                     "materials":[],"issues":[],"limitations":["No hay resultados de IA verificados."],
                     "method":"inferencia_fallida"}
