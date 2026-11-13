@@ -1,88 +1,80 @@
-# Tasación Visual Rápida · Tarea 8
+# Tasación Visual — aplicación web referencial
 
-Aplicación local con FastAPI, SQLite y dos perfiles de YOLO. **Vivienda usa YOLOv8n-seg de OpenSistemas para segmentar fisuras visibles**. Los otros tipos usan YOLOv8n COCO para detección genérica. Las demás clases de daños y materiales se pueden registrar manualmente y el panel muestra cuáles siguen sin soporte automático.
+Sistema web en español para registrar expedientes de bienes, capturar fotografías, revisar hallazgos y documentar una **tasación referencial**. Implementado en Python (FastAPI), SQLite y HTML/JavaScript. No sustituye un peritaje profesional ni determina aprobaciones de crédito.
 
-## Prueba rápida de una fisura
+## Estado real de implementación
 
-1. Crea un expediente **Vivienda**.
-2. En **Capturar evidencia**, adjunta `tests/fisura-superficie.jpg` como **Detalles**.
-3. En **Analizar**, selecciona la foto y pulsa **Analizar con YOLO**. En la prueba de integración, la máscara tuvo 529 vértices y el modelo asignó 89,30% de confianza a la detección.
-4. Selecciona **fisura visible** para resaltar la región. En **Revisar hallazgos**, confirma o descarta la propuesta y documenta el motivo. El resultado automático queda pendiente y no genera descuentos. Los ajustes de valor requieren respaldo documentado.
-5. Si quieres comparar con la prueba genérica del autobús, crea un expediente **Mototaxi** y carga `tests/bus.jpg` como **Frente**. Esta imagen comprueba el modelo genérico.
+- ✅ Inicio de sesión por roles: administrador, revisor, operador.
+- ✅ Expedientes: vivienda, mototaxi, vehículo, maquinaria y terreno.
+- ✅ Evidencias fotográficas JPG, PNG y WebP, con validación, redimensionado y almacenamiento privado.
+- ✅ Hallazgos manuales; revisión humana, confirmación y descarte; ajustes documentados.
+- ✅ Valor base, fuente y cálculo referencial (valor base menos ajustes confirmados).
+- ✅ Exportación PDF y JSON, auditoría por expediente, pruebas automatizadas en GitHub Actions.
+- ✅ Endpoint de salud y configuración para Render.
+- ⚠️ Inferencia YOLO es **opcional**. Solo funciona si se instalan las dependencias especializadas y se configura un archivo de pesos confiable. **No hay pesos entrenados ni métricas del modelo incluidos en este repositorio.** Las detecciones nunca descuentan valor sin revisión.
+- ⚠️ Esta reconstrucción **no incluye** entrenamiento validado, segmentación con máscaras, inspección de video, comparables automáticos, cálculo bancario de crédito ni validación en campo. El README anterior describía capacidades de una entrega ZIP que no está presente en GitHub.
 
-## Evaluación del perfil de fisuras
+## Ejecutar localmente
 
-Se evaluó el checkpoint en las 112 imágenes y 148 anotaciones del split público de prueba de Crack-Seg, con Ultralytics 8.4.211, CPU, tamaño de inferencia 640 y parámetros de validación predeterminados. Las métricas para **máscaras** fueron precisión 0,734, exhaustividad 0,601, mAP@0,50 0,584 y mAP@0,50–0,95 0,203. Consulta `tests/metricas-crack-seg.json` para los valores completos. Este split incluye superficies de distintos tipos y pertenece al mismo dataset declarado por el autor. Falta medir la generalización con viviendas locales y los falsos positivos en superficies sin daños. La confianza de una detección se refiere a esa región y no determina profundidad, causa, riesgo estructural ni pérdida de valor.
+Requiere Python 3.12 (o compatible).
 
-El peso de [OpenSistemas YOLOv8-crack-seg](https://huggingface.co/OpenSistemas/YOLOv8-crack-seg) se conserva en `weights/vivienda-fisuras.pt`. Licencia declarada AGPL-3.0. SHA-256 `cce8b30758621622a03119677709d172f2ec1a2f0452279bda37732fcffb00af`. La imagen de prueba corresponde a `images/test/1806.rf.8c87862452f4ce0232a666c180ec9942.jpg` del [dataset público Crack-Seg](https://docs.ultralytics.com/datasets/segment/crack-seg/), acreditado a University en Roboflow Universe.
-
-## Windows · Python 3.12 de 64 bits
-
-En PowerShell, dentro de la carpeta extraída:
-
-```powershell
-py -3.12 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install --index-url https://download.pytorch.org/whl/cpu torch==2.7.1 torchvision==0.22.1
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-powershell -ExecutionPolicy Bypass -File .\start.ps1
+```bash
+python -m venv .venv
+# Windows: .venv\\Scripts\\activate
+# macOS/Linux: source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
-Abre [http://127.0.0.1:8000](http://127.0.0.1:8000). Usa el usuario **revisor** y la contraseña que muestra la terminal. Para mantener una contraseña entre arranques, configura `$env:TASACION_REVISOR_PASSWORD` en tu sesión antes de ejecutar el script. Cierra la ventana privada del navegador para probar otra cuenta.
+Configura una contraseña de administrador y una clave de sesión:
 
-Puedes habilitar las cuentas locales **operador** y **administrador** con `$env:TASACION_OPERADOR_PASSWORD` y `$env:TASACION_ADMINISTRADOR_PASSWORD`. Operador registra y captura. Revisor y administrador revisan y cierran. Las cuentas habilitadas comparten el conjunto de expedientes de esta instalación. SQLite guarda imágenes y expedientes en `data/cases.sqlite3`; `TASACION_DB` permite cambiar la ruta. Esta configuración está diseñada para ejecución local en loopback.
-
-## Demostración con YOLO y tasación con evidencia
-
-1. Crea un expediente según el activo que quieras evaluar. Adjunta una imagen a la toma correspondiente.
-2. En **Analizar**, selecciona la imagen y pulsa **Analizar con YOLO**. Las clases COCO genéricas quedan fuera de los ajustes. Un revisor puede repetir el análisis y archivar el anterior conservando hallazgos manuales.
-3. Para una inspección de vivienda, crea otro expediente y carga sus fotos o videos en las tomas correspondientes. Los avisos de calidad son heurísticos. El video se limita a 60 s, toma hasta diez muestras y conserva los fotogramas que pasan los controles de calidad y similitud. Un video pertenece a la toma elegida y el sistema no infiere el ángulo físico.
-4. En **Revisar hallazgos**, confirma las tomas inspeccionadas. Agrega un hallazgo manual dibujando su región o revisa una detección existente. Puedes agrupar dos registros del mismo daño confirmando uno y descartando el otro como duplicado. Para máquina, guarda el resultado de funcionamiento y puedes adjuntar evidencia de video en la toma correspondiente.
-5. Ingresa primero el valor base y su fuente. En cada factor, documenta por separado reparación e impacto de mercado. Marca **Ya incluido en el valor base** cuando corresponda. Si cambia la base, vuelve a revisar los ajustes previos. Completa revisión y descarga PDF o JSON.
-
-El puntaje es una regla referencial con pesos iguales por toma confirmada y penalizaciones de 6, 15 y 30 según severidad revisada. La política exige al menos 70% de cobertura para calcular crédito. Un hallazgo severo lo deja pendiente. El crédito de garantía usa el límite inferior del valor y queda pendiente si quedan ajustes sin cuantificar. El crédito de mejora usa presupuesto documentado y porcentaje. La diferencia entre límites del valor es un escenario de ajuste basado en fuentes ingresadas.
-
-## Entrenar pesos especializados
-
-Prepara el dataset con imágenes y etiquetas YOLO en `images/{train,val,test}` y `labels/{train,val,test}`. Copia `datasets/vivienda.example.yaml` y rellena `datasets/manifest.example.csv` con todas las imágenes, asignando cada activo a un solo conjunto. Para segmentación, etiqueta polígonos y pasa `--task segment`.
-
-```powershell
-.\.venv\Scripts\python.exe train.py vivienda datasets/vivienda.example.yaml datasets/manifest.csv --epochs 70
+```bash
+# macOS / Linux
+export TASACION_ADMIN_PASSWORD='cambia-esta-clave-por-una-segura'
+export SESSION_SECRET='clave-aleatoria-larga-de-al-menos-32-caracteres'
+uvicorn app:app --reload
 ```
 
-Se genera `best.pt` y un reporte de evaluación en el conjunto de prueba. Copia el peso a `weights/vivienda.pt` y reemplaza el perfil de vivienda por `"vivienda": "weights/vivienda.pt"` en `specialized` dentro de `config.json`. Reinicia la aplicación. Para probar un peso específico con todos los activos, configura `$env:YOLO_WEIGHTS` antes de iniciar. Instala únicamente pesos de una fuente de confianza.
-
-## Evaluación opcional de ML tabular
-
-Completa el CSV de `datasets/prices.example.csv` con precios verificados, fuentes y al menos 30 activos distintos por categoría. Instala `requirements-ml.txt` y ejecuta `python evaluate_prices.py vivienda ruta/precios.csv`. El script mide error absoluto, sesgo y cobertura empírica del rango en activos separados. Compara con la mediana del entrenamiento. Los resultados son experimentales y el motor de tasación usa evidencia y ajustes revisados.
-
-## Pruebas y origen de los pesos
+En PowerShell:
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest -q
+$env:TASACION_ADMIN_PASSWORD = 'cambia-esta-clave-por-una-segura'
+$env:SESSION_SECRET = 'clave-aleatoria-larga-de-al-menos-32-caracteres'
+uvicorn app:app --reload
 ```
 
-Peso [yolov8n.pt de Ultralytics](https://github.com/ultralytics/assets/releases/tag/v8.3.0), licencia AGPL-3.0 incluida en `weights/`. SHA-256 `f59b3d833e2ff32e194b5bb8e08d211dc7c5bdf144b90d2c8412c47ccfc83b36`. Imagen [bus.jpg del repositorio Ultralytics](https://github.com/ultralytics/ultralytics/blob/main/ultralytics/assets/bus.jpg), usada como evidencia de integración.
+Abre http://127.0.0.1:8000, usuario **administrador** y la contraseña definida. Las cuentas opcionales `revisor` y `operador` se habilitan al iniciar con `TASACION_REVISOR_PASSWORD` y `TASACION_OPERADOR_PASSWORD`. Las contraseñas se configuran **solo al crear cada cuenta en la base**; cambiar la variable después no actualiza automáticamente una cuenta existente.
 
-El ZIP incluye las herramientas y plantillas de entrenamiento y evaluación. La precisión en viviendas, vehículos, maquinaria y terrenos requiere un conjunto real etiquetado y validación por categoría. El valor y el crédito son referenciales para la Tarea 8.
+SQLite y fotografías se guardan en `data/` de forma predeterminada. Configura `TASACION_DATA` y, si procede, `TASACION_DB` para otra ruta. **Evita publicar expedientes reales con datos privados sin revisar el tratamiento de datos, permisos y copias de seguridad.**
 
-## Visor comparativo y entrenamiento piloto
+## YOLO opcional
 
-Activa **Comparar con original** para ver la foto original y la máscara lado a lado. Selecciona un hallazgo desde la lista o desde su región marcada. Puedes ocultar las marcas, aplicar zoom y filtrar por confianza. El resaltado automático después de la inferencia selecciona la detección visible con mayor confianza.
+```bash
+pip install -r requirements-yolo.txt
+export YOLO_WEIGHTS=/ruta/absoluta/modelo.pt
+```
 
-El piloto afinó el checkpoint anterior durante dos épocas con 192 imágenes del split de entrenamiento de Crack-Seg, seleccionadas con semilla 42. Usó CPU, tamaño 416, AdamW y tasa inicial 0,0001. Ambos pesos se evaluaron a tamaño 640 con las 112 imágenes del split público de prueba. Se conservó el modelo anterior como predeterminado, porque obtuvo mayor exhaustividad (60,1% frente a 52,8%) y mAP@0,50 de máscara (58,4% frente a 52,4%). Consulta `experiments/metricas-piloto.json`. Para probar el peso experimental, cambia únicamente la ruta del perfil vivienda en `config.json` a `weights/vivienda-fisuras-piloto.pt` y conserva el alias `crack` a `fisura_visible`.
+Reinicia la app. Usa un modelo previamente entrenado y verificado; los pesos no se descargan automáticamente. Si no se configura, el botón de análisis informa que el servicio no está disponible; no simula detecciones. Los modelos genéricos COCO detectan objetos, **no certifican grietas ni daños**.
 
-El piloto evalúa una sola clase. Para incorporar humedad, calamina, ladrillo expuesto y corrosión se requieren imágenes anotadas de esas clases. La validación independiente con viviendas locales sigue pendiente.
+## Despliegue en Render
 
-## Auditoría de entrega
+Se incluye `render.yaml` con un servicio Python, disco persistente en `/var/data`, variables `APP_ENV=production`, `TASACION_DATA=/var/data`, `SESSION_SECRET` generado y `TASACION_ADMIN_PASSWORD` manual. **El plan starter y el disco persistente pueden generar cargos.** No despliegues en un plan sin almacenamiento persistente si necesitas conservar las imágenes y los casos.
 
-Consulta `AUDITORIA.md` para el inventario, las correcciones y los pendientes.
+1. Conecta este repositorio en Render y crea el servicio desde Blueprint (`render.yaml`).
+2. Define `TASACION_ADMIN_PASSWORD` como secreto antes del primer arranque; no lo pongas en GitHub.
+3. Revisa la factura y la configuración del disco, ejecuta el despliegue y verifica `/health` y el flujo de sesión/expediente.
+4. Para imágenes y modelo YOLO en producción, instala dependencias opcionales y proporciona un peso validado sin exponer secretos.
 
-## Versión 6 · Comparables y preparación de datos
+**Estado:** configuración preparada, pero este README no afirma que exista un servicio público operativo; debe verificarse en el dashboard de Render.
 
-En **Revisar hallazgos**, registra comparables con referencia, fuente, tipo de precio, precio observado, precio ajustado y justificación. Con dos o más referencias distintas puedes usar el mínimo y el máximo de los precios ajustados como valor base. Los comparables se guardan en el expediente y se incluyen en PDF y JSON. Este rango refleja los comparables ingresados y requiere validación con tasaciones reales. Si cambia la evidencia usada para derivar la base, revisa de nuevo los descuentos.
+## Pruebas
 
-En **Emitir informe**, el revisor puede exportar anotaciones YOLO de hallazgos confirmados. El ZIP trae cajas para detección, fotos, orden de clases y manifiesto. Antes de entrenar, completa las anotaciones de cada foto, añade negativos y separa train, val y test por activo. Para un modelo de segmentación, se requieren polígonos anotados.
+```bash
+pip install pytest httpx
+python -m pytest -q
+```
 
-## Acceso desde la pantalla de inicio
+Las pruebas cubren autenticación, creación de expedientes, revisión, valoraciones, exportación PDF/JSON, fotografía, estado sin YOLO y bootstrap del administrador en producción.
 
-Abre la dirección de Uvicorn en tu navegador e introduce el usuario **revisor** y la contraseña que muestra PowerShell. La sesión dura hasta ocho horas y se cierra al reiniciar el servidor. Usa **Cerrar sesión** para cambiar de cuenta. La foto de la portada es un ejemplo incluido y puedes analizarla cargando `tests/fisura-superficie.jpg` en la toma **Detalles**. El flujo se ejecuta en el servidor Python local.
+## Licencia y modelos
+
+No se incluyen pesos de terceros en este repositorio. Revisa licencias de modelos y datasets antes de entrenar, distribuir o ejecutar aplicaciones comerciales.
