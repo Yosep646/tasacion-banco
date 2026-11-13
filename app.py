@@ -11,6 +11,7 @@ from pathlib import Path
 from contextlib import contextmanager
 from yolo_service import predict_findings, get_model_configuration
 from vision_service import analyze_photo, evaluate_condition, guided_shots, simulate_credit
+from yolo_onnx import predict_cracks
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
@@ -181,7 +182,7 @@ class ReviewIn(BaseModel):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "tasacion-visual", "models": {"vivienda_fisuras": bool(os.getenv("YOLO_VIVIENDA_WEIGHTS")), "generico": bool(os.getenv("YOLO_WEIGHTS"))}, "vision_enabled": bool(os.getenv("OPENAI_API_KEY"))}
+    return {"status": "ok", "service": "tasacion-visual", "models": {"vivienda_fisuras": bool(os.getenv("YOLO_VIVIENDA_WEIGHTS")), "generico": bool(os.getenv("YOLO_WEIGHTS"))}, "vision_enabled": bool(os.getenv("OPENAI_API_KEY")), "yolo_cpu_enabled": os.getenv("YOLO_CPU_ENABLED") == "1"}
 
 @app.get("/", response_class=HTMLResponse)
 def home():
@@ -371,6 +372,69 @@ def vision_photo(case_id: str, evidence_id: str, req: Request):
     log(actor,"analisis_visual_pendiente",case_id)
     return {"id":rid,"state":"pendiente","result":result,
             "warning":"Observaciones automaticas no verificadas; un revisor debe confirmarlas. Ningun credito se aprueba automaticamente."}
+
+@app.post("/api/cases/{case_id}/automatic-inspection/{evidence_id}")
+def automatic_inspection(case_id: str, evidence_id: str, req: Request):
+    actor = auth(req, write=True)
+    case = require_case(case_id)
+    if case["asset_type"] != "vivienda":
+        raise HTTPException(422, "El modelo disponible solo esta entrenado para fisuras de vivienda")
+    if os.getenv("YOLO_CPU_ENABLED") != "1":
+        raise HTTPException(503, "Modelo YOLO CPU no habilitado en el servidor")
+    with db() as con:
+        photo = con.execute("SELECT * FROM evidence WHERE id=? AND case_id=?",
+                            (evidence_id,case_id)).fetchone()
+    if not photo:
+        raise HTTPException(404, "Fotografia no registrada en este expediente")
+    try:
+        detections, annotated = predict_cracks(str(UPLOADS / photo["filename"]))
+    except (OSError, ValueError, RuntimeError, ImportError) as exc:
+        # Do not expose provider internals to unauthenticated clients.
+        raise HTTPException(503, "Inferencia YOLO no disponible en este servidor") from exc
+    overlay_path = UPLOADS / (evidence_id + "-yolo.jpg")
+    annotated.save(overlay_path,format="JPEG",quality=88)
+    result = {
+        "condition":"requiere_mejoras" if detections else "no_determinable",
+        "summary": ("YOLO encontro " + str(len(detections)) +
+                    " posible(s) fisura(s). Hallazgos sujetos a revision humana.")
+                   if detections else
+                   "YOLO no encontro fisuras sobre el umbral de confianza. Esto NO acredita que la vivienda este en buen estado.",
+        "materials": [],
+        "issues": [{
+             "category":d["category"], "severity":"leve",
+             "description":d["description"]+" Confianza "+str(round(d["confidence"]*100))+"%.",
+             "improvement":d["improvement"], "box":d["box"], "confidence":d["confidence"]
+        } for d in detections],
+        "limitations":[
+            "YOLOv8n-seg entrenado para fisuras visibles: no identifica techo de calamina, ladrillo, tarrajeo ni humedad.",
+            "No determina estabilidad estructural ni daños ocultos. Ausencia de deteccion no implica ausencia de daños.",
+            "Se requiere validacion por perito para decisiones de credito o garantia."
+        ],
+        "method":"yolo_cpu_onnx", "model":"YOLOv8n fisuras",
+        "annotated_url":"/api/evidence/"+evidence_id+"/yolo-overlay",
+    }
+    analysis_id = str(uuid.uuid4())
+    with db() as con:
+        con.execute("INSERT INTO visual_assessments(id,case_id,evidence_id,state,result_json,created_at) VALUES(?,?,?,?,?,?)",
+                    (analysis_id,case_id,evidence_id,"pendiente",
+                     json.dumps(result,ensure_ascii=False),now()))
+        con.execute("UPDATE cases SET updated_at=? WHERE id=?",(now(),case_id))
+    log(actor,"detectar_fisuras_yolo",case_id)
+    return {"id":analysis_id,"state":"pendiente","result":result,
+            "warning":"La IA solo identifica posibles fisuras. Ninguna deteccion valida una tasacion ni aprueba creditos."}
+
+@app.get("/api/evidence/{evidence_id}/yolo-overlay")
+def yolo_overlay(evidence_id: str, req: Request):
+    auth(req)
+    with db() as con:
+        row = con.execute("SELECT filename FROM evidence WHERE id=?", (evidence_id,)).fetchone()
+    if not row:
+        raise HTTPException(404, "Fotografia no encontrada")
+    path = UPLOADS / (evidence_id + "-yolo.jpg")
+    if not path.exists():
+        raise HTTPException(404, "Imagen anotada no disponible. Ejecuta el analisis de nuevo.")
+    return FileResponse(path,media_type="image/jpeg",headers={"Cache-Control":"private, no-store"})
+
 
 @app.post("/api/cases/{case_id}/manual-inspection/{evidence_id}")
 def manual_inspection(case_id: str, evidence_id: str, data: ManualVisualObservation, req: Request):
