@@ -23,15 +23,16 @@ jobs:
           import os,tempfile
           from PIL import Image,ImageDraw
           from yolo_onnx import predict_cracks, ensure_model
-          image=Image.new('RGB',(640,640),(210,211,208))
+          image=Image.new('RGB',(640,640),'#dbd8d1')
           drawing=ImageDraw.Draw(image)
-          drawing.line([(150,10),(182,104),(300,235),(351,420),(375,610)],fill=(25,25,25),width=4)
+          drawing.line([(65,15),(120,180),(370,330),(410,620)],fill='#363430',width=3)
           with tempfile.TemporaryDirectory() as work:
               path=os.path.join(work,'image.jpg')
               image.save(path)
               print('Model:', ensure_model())
               results, annotated=predict_cracks(path)
               assert isinstance(results,list)
+              assert len(results) >= 1, 'The crack image must be detected by the exported model'
               assert annotated.size==(640,640)
               for r in results:
                   assert r['origin']=='yolo_onnx_fisuras'
