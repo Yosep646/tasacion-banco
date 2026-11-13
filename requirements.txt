@@ -4,3 +4,7 @@ python-multipart>=0.0.9,<1
 Pillow>=10,<13
 itsdangerous>=2.2,<3
 reportlab>=4,<5
+
+# YOLOv8-seg ONNX CPU, no PyTorch required in Render Free
+onnxruntime>=1.20,<2
+numpy>=1.26,<3
