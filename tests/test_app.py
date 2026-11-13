@@ -53,7 +53,7 @@ def test_upload_and_yolo_disabled():
     assert client.get("/api/evidence/"+eid).headers["content-type"].startswith("image/jpeg")
     analyze=client.post("/api/cases/"+ident+"/analyze/"+eid)
     assert analyze.status_code == 503
-    assert "YOLO no configurado" in analyze.json()["detail"]
+    assert "Modelo YOLO no configurado" in analyze.json()["detail"]
 
 def test_production_admin_bootstrap():
     import subprocess, sys, tempfile
