@@ -27,6 +27,24 @@ script="\n".join(parser.scripts)
 assert script.strip(), "No se encontró JavaScript en el dashboard"
 for required in ('id="caseForm"', 'id="caseList"', 'id="caseSearch"', 'name="asset_type"', 'name="title"', 'name="location"'):
     assert required in html or required.replace('"', '\\"') in html, required
+# Integration of the chosen first design must preserve functional quick evaluation.
+for required in (
+    'class="one-hero"',
+    'class="one-main-grid"',
+    'id="quickForm"',
+    'id="quickAnalyzeBtn"',
+    'id="exteriorFile"',
+    'id="interiorFile"',
+    'id="caseList"',
+    'id="logout"',
+    '/api/quick-inspection',
+    'renderQuickResults(body)',
+    'yoloCpuEnabled?"✓ YOLO configurado":"YOLO no disponible"',
+):
+    assert required in html, "Falta elemento del diseño integrado: " + required
+assert html.count('id="exteriorFile"') == 1
+assert html.count('id="interiorFile"') == 1
+
 with tempfile.NamedTemporaryFile(mode="w", suffix=".js", encoding="utf-8") as temporary:
     temporary.write(script)
     temporary.flush()
