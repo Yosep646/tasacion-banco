@@ -132,7 +132,7 @@ def evaluate_condition(asset_type, evidence, assessments, findings):
         name = item["shot"].strip().casefold()
         if name in (x.casefold() for x in shots) and name not in by_shot:
             by_shot[name] = item["id"]
-    latest = {a["evidence_id"]: a for a in assessments}
+    latest = {a["evidence_id"]: a for a in reversed(assessments)}
     reviewed = [latest[eid] for eid in by_shot.values()
                 if eid in latest and latest[eid]["state"] == "confirmado"]
     pending = [latest[eid] for eid in by_shot.values()
