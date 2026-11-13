@@ -98,11 +98,46 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .manual-observation-form textarea{min-height:75px}
 .inspection-photo{height:250px}
 @media(max-width:600px){.single-upload{padding:15px}.inspection-photo{height:200px}}
+
+.quick-hero{padding:14px 0 10px}
+.quick-hero h2{font-size:clamp(25px,3.2vw,39px);margin:10px 0 8px!important;letter-spacing:-1.1px}
+.quick-hero p{font-size:14px;color:#64748b;line-height:1.7;max-width:730px}
+.quick-labels{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0 22px}
+.quick-labels span{color:#2a5cc8;background:#edf4ff;border:1px solid #d7e4fa;padding:8px 11px;border-radius:30px;font-size:12px;font-weight:700}
+.quick-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.quick-drop{padding:24px;border:2px dashed #b9cff5;background:#f7faff;border-radius:18px;display:flex;align-items:center;text-align:center;gap:11px;min-height:245px;flex-direction:column;justify-content:center;cursor:pointer}
+.quick-drop:hover{border-color:#2764ed;background:#eff5ff}
+.quick-drop strong{font-size:17px}
+.quick-drop small{color:#687b94;font-weight:400}
+.quick-drop input{max-width:100%;font-size:12px;margin-top:6px}
+.quick-emoji{font-size:34px}
+.quick-actions{grid-column:1/-1;display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:12px 0}
+.quick-actions button,.quick-actions a{display:inline-flex;text-decoration:none;justify-content:center;align-items:center;min-height:47px}
+.quick-actions small{max-width:420px}
+.quick-verdict{margin:24px 0;background:#edf4ff;border:1px solid #cbdcfb;border-radius:17px;padding:22px}
+.quick-verdict small{display:block;color:#5e7091}
+.quick-verdict strong{display:block;font-size:22px;color:#1244b6;margin:8px 0}
+.quick-verdict p{font-size:12px;color:#63728c}
+.quick-pictures{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:22px 0}
+.quick-photo{border:1px solid #dce6f4;border-radius:14px;overflow:hidden}
+.quick-photo img{width:100%;height:250px;object-fit:cover}
+.quick-photo div{padding:12px}
+.quick-photo p{color:#66758e;font-size:13px}
+.quick-finding{padding:13px;border-left:3px solid #e38b4e;background:#fff9f4;margin:9px 0;border-radius:8px}
+.quick-finding p{margin:8px 0;font-size:13px}
+.quick-finding small{color:#7d5e4d}
+.quick-quote{border:1px solid #dce4f0;border-radius:15px;background:#f9fbff;padding:20px;margin:20px 0}
+.quick-quote strong{display:block;font-size:17px;color:#244eab}
+.quick-quote p,.quick-limits p{font-size:13px;color:#66758a;line-height:1.6}
+.quick-limits{border-top:1px solid #e0e8f4;padding:15px 0}
+.quick-limits summary{font-weight:700;cursor:pointer}
+#quickProgress{color:#2553ba;font-size:13px;margin-top:13px;font-weight:650}
+@media(max-width:710px){.quick-form,.quick-pictures{grid-template-columns:1fr}.quick-drop{min-height:195px;padding:18px}}
 </style></head><body>
 <div id="loginPanel" class="card auth hide"><div class="brand"><span class="logo">TV</span><div><h1 class="heading">Tasación Visual</h1><p class="muted">Ingreso seguro al sistema</p></div></div>
 <form id="loginForm"><div class="field"><label>Usuario</label><input id="user" autocomplete="username" required placeholder="administrador"></div><div class="field"><label>Contraseña</label><input id="pass" type="password" autocomplete="current-password" required></div><button class="primary" style="width:100%">Ingresar</button></form><p id="loginError" class="danger"></p></div>
 <div id="mainPanel" class="shell hide"><header class="top"><div class="brand"><span class="logo">TV</span><div><h1 class="heading">Tasación Visual</h1><div class="muted">Análisis de evidencias · Valoración referencial</div></div></div><div class="flex"><span id="who" class="pill"></span><button class="secondary" id="logout">Cerrar sesión</button></div></header>
-<div class="layout"><aside class="side"><div class="card"><div class="side-title"><b>Mis expedientes</b><span class="side-count" id="caseCount">0 registrados</span></div><p class="muted" style="font-size:13px;line-height:1.6">Gestiona tus inspecciones y revisa cada tasación.</p><button class="primary" id="newCase" style="width:100%;margin:10px 0 3px">＋ Nuevo expediente</button><div class="sidebar-label">Buscar expediente</div><input id="caseSearch" type="search" placeholder="Buscar por nombre o activo…" aria-label="Buscar expedientes"><div class="sidebar-label">Expedientes recientes</div><div id="caseList"></div></div></aside><main><div class="card" id="workspace"><div class="empty">Crea o selecciona un expediente para empezar</div></div><div id="notice" role="status" aria-live="polite"></div></main></div></div>
+<div class="layout"><aside class="side"><div class="card"><div class="side-title"><b>Mis expedientes</b><span class="side-count" id="caseCount">0 registrados</span></div><p class="muted" style="font-size:13px;line-height:1.6">Gestiona tus inspecciones y revisa cada tasación.</p><button class="primary" id="quickStart" style="width:100%;margin:10px 0 3px">⚡ Evaluación rápida con IA</button><button class="secondary" id="newCase" style="width:100%;margin:8px 0 3px">＋ Expediente avanzado</button><div class="sidebar-label">Buscar expediente</div><input id="caseSearch" type="search" placeholder="Buscar por nombre o activo…" aria-label="Buscar expedientes"><div class="sidebar-label">Expedientes recientes</div><div id="caseList"></div></div></aside><main><div class="card" id="workspace"><div class="empty">Crea o selecciona un expediente para empezar</div></div><div id="notice" role="status" aria-live="polite"></div></main></div></div>
 <script>
 const $=id=>document.getElementById(id);let selected=null,current=null,tab='general',userRole='',visionEnabled=false,yoloCpuEnabled=false;
 const escapeHTML=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -114,7 +149,56 @@ function showLogin(){ $('mainPanel').classList.add('hide');$('loginPanel').class
 async function boot(){try{let me=await request('/api/me');userRole=me.role;$('who').textContent=me.username;$('loginPanel').classList.add('hide');$('mainPanel').classList.remove('hide');const health=await request('/health');visionEnabled=Boolean(health.vision_enabled);yoloCpuEnabled=Boolean(health.yolo_cpu_enabled);await refresh()}catch(e){showLogin()}}
 $('loginForm').onsubmit=async ev=>{ev.preventDefault();try{await request('/api/login',json('POST',{username:$('user').value,password:$('pass').value}));$('pass').value='';await boot()}catch(e){$('loginError').textContent=e.message}};
 $('logout').onclick=async()=>{await request('/api/logout',{method:'POST'});showLogin()};
-async function refresh(){let cs=await request('/api/cases');window.allCases=cs;const counter=$('caseCount');if(counter)counter.textContent=cs.length+' registrados';drawCases();if(selected)await choose(selected,false);else if(cs.length===0)$('newCase').click()}
+
+function renderQuickStart(){
+ selected=null;drawCases();
+ $('workspace').innerHTML='<div class="quick-hero"><span class="form-eyebrow">Tasación visual rápida / Asistencia automatizada</span><h2>Analiza tu vivienda con 1 o 2 fotos</h2><p>Sube una foto exterior y, si deseas, otra del interior. El sistema ejecutará YOLO para detectar posibles fisuras y generará un informe preliminar sin llenar un expediente manual.</p></div>'+
+ '<div class="quick-labels"><span>01 · Fotografías</span><span>02 · Detección automática</span><span>03 · Informe inmediato</span></div>'+
+ '<form id="quickForm" class="quick-form"><label class="quick-drop"><span class="quick-emoji">🏠</span><strong>Foto exterior</strong><small>Obligatoria · fachada, muro o vista exterior</small><input type="file" accept="image/jpeg,image/png,image/webp" name="exterior" required></label>'+
+ '<label class="quick-drop"><span class="quick-emoji">🛋️</span><strong>Foto interior</strong><small>Opcional · habitación, pared o techo</small><input type="file" accept="image/jpeg,image/png,image/webp" name="interior"></label>'+
+ '<div class="quick-actions"><button class="primary" type="submit">Analizar vivienda y generar informe</button><small class="muted">JPG, PNG o WebP · 8 MB máximo por imagen. El análisis puede tardar al iniciar el servidor gratuito.</small></div></form>'+
+ '<p class="vision-warning"><b>Alcance real:</b> YOLO actualmente identifica posibles fisuras. Si hay visión multimodal configurada, se añadirán observaciones de materiales y otros deterioros. El sistema no puede valorar con precisión toda una propiedad ni calcular el costo total de las mejoras sin metrados y precios documentados.</p><div id="quickProgress" role="status" aria-live="polite"></div>';
+ $('quickForm').onsubmit=async e=>{
+   e.preventDefault();
+   const form=e.currentTarget;
+   const submit=form.querySelector('button[type=submit]');
+   submit.disabled=true;submit.textContent='Analizando las fotos…';
+   $('quickProgress').textContent='Procesando las imágenes y preparando el reporte. La primera ejecución puede descargar el modelo YOLO.';
+   try{
+     const response=await fetch('/api/quick-inspection',{method:'POST',body:new FormData(form),credentials:'same-origin'});
+     const body=await response.json().catch(()=>({}));
+     if(!response.ok)throw Error(body.detail||'Error de análisis HTTP '+response.status);
+     selected=body.case_id;
+     renderQuickResults(body);
+     window.allCases=await request('/api/cases');
+     const count=$('caseCount');if(count)count.textContent=window.allCases.length+' registrados';
+     drawCases();
+     note('Informe automático generado. Los resultados son preliminares.');
+   }catch(ex){
+     $('quickProgress').textContent='No se pudo completar el análisis: '+ex.message;
+     submit.disabled=false;submit.textContent='Analizar vivienda y generar informe';
+   }
+ };
+}
+function renderQuickResults(result){
+ const highlights=(result.issues||[]).map(x=>'<div class="quick-finding"><strong>'+escapeHTML(x.category)+'</strong><span class="pill">Por revisar</span><p>'+escapeHTML(x.description)+'</p><small>Mejora posible: '+escapeHTML(x.improvement||'Evaluación por especialista')+'</small></div>').join('')||'<p class="muted">No se encontraron fisuras sobre el umbral de confianza. Esto no significa que la vivienda esté libre de daños.</p>';
+ const materials=(result.materials||[]).map(x=>'<span class="material-chip">'+escapeHTML(x.name)+'</span>').join('')||'<p class="muted">Los modelos actualmente habilitados no identificaron materiales verificables.</p>';
+ const shots=(result.image_summaries||[]).map(x=>'<article class="quick-photo"><img src="'+escapeHTML(x.annotated_url||('/api/evidence/'+x.evidence_id))+'" alt="Resultado visual '+escapeHTML(x.shot)+'"><div><strong>'+escapeHTML(x.shot)+'</strong><p>'+escapeHTML(x.summary||'Sin análisis')+'</p></div></article>').join('');
+ $('workspace').innerHTML='<div class="form-intro"><div><span class="form-eyebrow">Informe generado automáticamente</span><h2>Resultado de la inspección</h2><p>'+escapeHTML(result.images_analyzed)+' foto(s) analizada(s) · Evaluación preliminar sujeta a revisión humana</p></div><span class="workspace-tag">Sin formularios manuales</span></div>'+
+ '<div class="quick-verdict"><small>Condición visual observada</small><strong>'+escapeHTML(result.condition)+'</strong><p>La ausencia de detecciones no certifica que una vivienda sea segura.</p></div>'+
+ '<div class="quick-actions"><a class="primary" target="_blank" rel="noopener" href="/api/cases/'+encodeURIComponent(result.case_id)+'/quick-report.pdf">Descargar informe PDF</a><a class="secondary" target="_blank" rel="noopener" href="/api/cases/'+encodeURIComponent(result.case_id)+'/quick-report">Ver resultado JSON</a><button class="secondary" id="anotherQuick">Nueva evaluación</button></div>'+
+ '<div class="quick-pictures">'+shots+'</div><h3>Hallazgos detectados</h3><div>'+highlights+'</div>'+
+ '<h3>Materiales observados</h3><div>'+materials+'</div>'+
+ '<div class="quick-quote"><h3>Presupuesto de mejoras</h3><strong>Total aún no calculable</strong><p>'+escapeHTML(result.quote?.explanation||'Se necesitan cantidades verificadas y precios documentados.')+'</p>'+
+ (result.quote?.items||[]).map(x=>'<p>'+escapeHTML(x.work)+': S/ '+Number(x.unit_price_pen).toFixed(2)+'/'+escapeHTML(x.unit)+' · Fuente: '+escapeHTML(x.source)+' · Cantidad pendiente</p>').join('')+
+ '<p><b>Valor comercial de la vivienda:</b> no determinado mediante fotografías. Se necesitan área, ubicación, documentos y comparables.</p></div>'+
+ '<details class="quick-limits"><summary>Limitaciones del análisis</summary>'+(result.limitations||[]).map(x=>'<p>'+escapeHTML(x)+'</p>').join('')+'</details>'+
+ (result.analysis_errors?.length?'<div class="vision-warning">'+result.analysis_errors.map(escapeHTML).join('; ')+'</div>':'');
+ $('anotherQuick').onclick=renderQuickStart;
+}
+$('quickStart').onclick=renderQuickStart;
+
+async function refresh(){let cs=await request('/api/cases');window.allCases=cs;const counter=$('caseCount');if(counter)counter.textContent=cs.length+' registrados';drawCases();if(selected)await choose(selected,false);else renderQuickStart()}
 function drawCases(){const cs=window.allCases||[];const query=($('caseSearch')?.value||'').toLocaleLowerCase().trim();const filtered=cs.filter(c=>(c.title+' '+c.asset_type+' '+c.location).toLocaleLowerCase().includes(query));$('caseList').innerHTML=filtered.map(c=>'<button class="case '+(c.id===selected?'active':'')+'" data-id="'+c.id+'"><b>'+escapeHTML(c.title)+'</b><br><small class="muted">'+escapeHTML(c.asset_type)+' · '+escapeHTML(c.status)+'</small></button>').join('')||(query?'<div class="empty-side">No hay coincidencias.</div>':'<div class="empty-side"><span class="side-icon">▤</span>Sin expedientes todavía.<br>Crea el primero para comenzar.</div>');document.querySelectorAll('[data-id]').forEach(el=>el.onclick=()=>choose(el.dataset.id))}
 $('caseSearch').addEventListener('input',drawCases);
 $('newCase').onclick=()=>{$('workspace').innerHTML="<div class=\"form-intro\"><div><span class=\"form-eyebrow\">Gestión de activos / Registro inicial</span><h2>Nuevo expediente</h2><p>Registra los datos principales del bien para empezar la evaluación visual y documentar sus evidencias.</p></div><span class=\"workspace-tag\">Paso 1 de 3</span></div><div class=\"form-steps\"><span>① Datos del activo</span><span>② Evidencias y hallazgos</span><span>③ Valoración e informe</span></div><form id=\"caseForm\"><section class=\"form-section\"><div class=\"section-head\"><span class=\"section-index\">01</span><h3>Información del activo</h3></div><div class=\"form-grid\"><div class=\"field\"><label for=\"asset_type\">Tipo de activo <span class=\"req\">*</span></label><select id=\"asset_type\" name=\"asset_type\" required><option value=\"vivienda\">🏠 Vivienda</option><option value=\"mototaxi\">🛺 Mototaxi</option><option value=\"vehiculo\">🚙 Vehículo</option><option value=\"maquinaria\">⚙️ Maquinaria</option><option value=\"terreno\">🌿 Terreno</option></select><small>Selecciona el tipo de bien a evaluar.</small></div><div class=\"field\"><label for=\"title\">Nombre del expediente <span class=\"req\">*</span></label><input id=\"title\" name=\"title\" minlength=\"2\" maxlength=\"140\" required placeholder=\"Ej. Casa familiar - Huánuco\"><small>Un nombre corto para identificar la inspección.</small></div></div></section><section class=\"form-section\"><div class=\"section-head\"><span class=\"section-index\">02</span><h3>Información complementaria</h3></div><div class=\"form-grid\"><div class=\"field\"><label for=\"owner_name\">Propietario o responsable</label><input id=\"owner_name\" name=\"owner_name\" maxlength=\"140\" autocomplete=\"off\" placeholder=\"Nombre del responsable\"></div><div class=\"field\"><label for=\"location\">Ubicación del bien</label><input id=\"location\" name=\"location\" maxlength=\"240\" placeholder=\"Distrito, provincia, departamento\"></div><div class=\"field field-wide\"><label for=\"details\">Observaciones iniciales</label><textarea id=\"details\" name=\"details\" maxlength=\"2000\" placeholder=\"Describe el estado general, el objetivo de la tasación o información relevante…\"></textarea><small>Podrás añadir fotografías y detallar los hallazgos después de crear el expediente.</small></div></div></section><div class=\"form-actions\"><p>Los campos con * son obligatorios. Esta valoración es referencial y requiere revisión humana.</p><div class=\"flex\"><button type=\"reset\" class=\"secondary\">Limpiar</button><button class=\"primary\" type=\"submit\">Crear expediente →</button></div></div></form>";document.querySelectorAll('.case').forEach(el=>el.classList.remove('active'));$('caseForm').onsubmit=async e=>{e.preventDefault();const btn=e.target.querySelector('button[type="submit"]');btn.disabled=true;btn.textContent='Creando expediente…';try{let data=Object.fromEntries(new FormData(e.target));let c=await request('/api/cases',json('POST',data));selected=c.id;tab='inspeccion';await refresh();note('Expediente creado. Captura las fotografías guiadas para la inspección visual.')}catch(ex){note(ex.message);btn.disabled=false;btn.textContent='Crear expediente →'}}};
