@@ -1,6 +1,7 @@
 """Fast, evidence-based inspection summary; do not manufacture property values or area."""
 import json
 import os
+from inspection_taxonomy import CLASSES, public_capabilities
 
 LIMITATIONS = [
     "Una o dos fotos no muestran el estado completo de la vivienda.",
@@ -32,7 +33,10 @@ def summarize(assessments, photo_count, provider_available):
                     "description":str(issue.get("description",""))[:500],
                     "improvement":str(issue.get("improvement",""))[:300],
                     "evidence_id":a["evidence_id"],
-                    "confidence":issue.get("confidence")
+                    "confidence":issue.get("confidence"),
+                    "shot":a["shot"],
+                    "label":CLASSES.get(str(issue.get("category","")),{ }).get("label",str(issue.get("category",""))),
+                    "urgency":CLASSES.get(str(issue.get("category","")),{ }).get("urgency","revisar")
                 })
         notes.append({"shot":a["shot"],"summary":result.get("summary",""),
                       "evidence_id":a["evidence_id"],
@@ -45,22 +49,43 @@ def summarize(assessments, photo_count, provider_available):
         condition = "Sin problemas visibles identificados en las vistas analizadas; revisión incompleta"
     else:
         condition = "No determinable con las imágenes disponibles"
-    detail = ("El detector YOLO disponible está entrenado exclusivamente para posibles fisuras. "
-              "Otros materiales y deterioros requieren un modelo multimodal configurado; "
-              "su ausencia no puede interpretarse como que no existen defectos.")
+    multiclass = any("defect5" in model for model in models)
+    detail = ("YOLO multiclase reconoce cinco categorías de defectos observables, pero su "
+              "precisión es limitada en humedad, moho y pintura. No identifica puerta ausente, "
+              "tarrajeo, pisos fracturados, calamina o materiales sin pesos adicionales."
+              if multiclass else
+              "El detector actual solo está entrenado para posibles fisuras; "
+              "otros daños y materiales no se pueden verificar con este modelo.")
+    improvements=[]
+    for issue in issues:
+        ident=issue["category"]+"@"+issue["shot"]
+        if not any(item["id"]==ident for item in improvements):
+            improvements.append({
+                "id":ident, "shot":issue["shot"],"category":issue["category"],
+                "label":issue["label"],"priority":issue["urgency"],
+                "action":issue["improvement"] or CLASSES.get(issue["category"],{}).get("improvement","Realizar inspección profesional"),
+                "before_quoting":"Confirmar el diagnóstico, tomar metrados y solicitar cotización local de materiales y mano de obra.",
+                "confirmed":False,
+            })
+    alert_priority=("prioritaria" if any(x["urgency"]=="prioritaria" for x in issues)
+                    else "revisar" if issues else "no_determinable")
     return {
         "status": "preliminar_automatico",
         "images_analyzed":photo_count,
         "condition":condition,
         "materials":materials,
         "issues":issues,
+        "improvements":improvements,
+        "inspection_priority":alert_priority,
+        "capabilities":public_capabilities(multiclass),
         "image_summaries":notes,
         "models":sorted(set(models)),
         "analysis_errors":errors,
         "limitations":LIMITATIONS+[detail],
         "quote": build_quote(issues),
         "property_market_value":None,
-        "property_market_value_reason":"No es posible estimar un valor comercial preciso con 1-2 imágenes: faltan ubicación verificada, área, documentos y comparables.",
+        "property_market_value_reason":"Una tasación monetaria requiere área construida/terreno, ubicación, materiales comprobados, estado contrastado, comparables o valores oficiales, y revisión profesional. Dos fotos no proporcionan esos datos.",
+        "valuation_inputs_needed":["Ubicación exacta del inmueble","Área construida y del terreno","Tipo y antigüedad de construcción","Comparables o valores oficiales por región y categoría","Metrados y cotizaciones para mejoras"],
         "human_review_required":True,
     }
 
