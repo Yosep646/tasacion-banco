@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: tasacion-visual
+    runtime: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: TASACION_ADMIN_PASSWORD
+        sync: false
+      - key: TASACION_DATA
+        value: /var/data
+    disk:
+      name: tasacion-data
+      mountPath: /var/data
+      sizeGB: 1
