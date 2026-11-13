@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from contextlib import contextmanager
 from yolo_service import predict_findings, get_model_configuration
+from vision_service import analyze_photo, evaluate_condition, guided_shots, simulate_credit
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
@@ -70,6 +71,12 @@ def init_db():
           state TEXT NOT NULL DEFAULT 'pendiente', description TEXT NOT NULL DEFAULT '',
           adjustment REAL NOT NULL DEFAULT 0, justification TEXT NOT NULL DEFAULT '',
           created_at TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS visual_assessments (
+          id TEXT PRIMARY KEY, case_id TEXT NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+          evidence_id TEXT NOT NULL REFERENCES evidence(id) ON DELETE CASCADE,
+          state TEXT NOT NULL DEFAULT 'pendiente', result_json TEXT NOT NULL,
+          reviewer TEXT, reviewed_at TEXT, created_at TEXT NOT NULL);
+        CREATE INDEX IF NOT EXISTS visual_assessments_case_idx ON visual_assessments(case_id,evidence_id,created_at);
         CREATE TABLE IF NOT EXISTS audit (
           id INTEGER PRIMARY KEY AUTOINCREMENT, actor TEXT NOT NULL, action TEXT NOT NULL,
           case_id TEXT, at TEXT NOT NULL);
@@ -119,12 +126,21 @@ def serialize_case(row):
     with db() as con:
         c["evidence"] = [dict(r) for r in con.execute("SELECT id,case_id,original_name,shot,content_type,created_at FROM evidence WHERE case_id=? ORDER BY created_at DESC", (c["id"],))]
         c["findings"] = [dict(r) for r in con.execute("SELECT * FROM findings WHERE case_id=? ORDER BY created_at DESC", (c["id"],))]
+        c["visual_assessments"] = [dict(r) for r in con.execute("SELECT * FROM visual_assessments WHERE case_id=? ORDER BY created_at DESC, rowid DESC", (c["id"],))]
+    c["visual_condition"] = evaluate_condition(c["asset_type"], c["evidence"], c["visual_assessments"], c["findings"])
     accepted = [x for x in c["findings"] if x["state"] == "confirmado"]
     deductions = sum(max(0, float(x["adjustment"])) for x in accepted)
     c["estimated_value"] = round(max(0, float(c["base_value"]) - deductions), 2)
     c["unreviewed"] = sum(x["state"] == "pendiente" for x in c["findings"])
     c["valuation_status"] = "referencial" if c["base_value"] > 0 and not c["unreviewed"] and c["source"].strip() else "pendiente"
     return c
+
+class VisualReview(BaseModel):
+    state: str
+
+class CreditSimulation(BaseModel):
+    documented_budget: float = Field(gt=0, le=1e10)
+    budget_source: str = Field(min_length=5, max_length=500)
 
 class Login(BaseModel):
     username: str
@@ -156,7 +172,7 @@ class ReviewIn(BaseModel):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "tasacion-visual", "models": {"vivienda_fisuras": bool(os.getenv("YOLO_VIVIENDA_WEIGHTS")), "generico": bool(os.getenv("YOLO_WEIGHTS"))}}
+    return {"status": "ok", "service": "tasacion-visual", "models": {"vivienda_fisuras": bool(os.getenv("YOLO_VIVIENDA_WEIGHTS")), "generico": bool(os.getenv("YOLO_WEIGHTS"))}, "vision_enabled": bool(os.getenv("OPENAI_API_KEY"))}
 
 @app.get("/", response_class=HTMLResponse)
 def home():
@@ -315,6 +331,62 @@ def analyze(case_id: str, evidence_id: str, req: Request):
             new_count += 1
     log(actor, "analisis_yolo", case_id)
     return {"detections": new_count, "profile": model_config["profile"], "warning": "Detecciones pendientes; no generan descuento automático. Las fisuras son observaciones visuales, no diagnósticos estructurales."}
+
+
+@app.get("/api/inspection-guide/{asset_type}")
+def inspection_guide(asset_type: str, req: Request):
+    auth(req)
+    if asset_type not in ("vivienda", "mototaxi", "maquinaria", "terreno", "vehiculo"):
+        raise HTTPException(422, "Tipo de activo desconocido")
+    return {"asset_type": asset_type, "shots": guided_shots(asset_type),
+            "instructions": "Captura las vistas guiadas sin filtros, buena iluminacion y sin ocultar daños. La IA no puede verificar seguridad estructural ni aprobar creditos."}
+
+@app.post("/api/cases/{case_id}/vision/{evidence_id}")
+def vision_photo(case_id: str, evidence_id: str, req: Request):
+    actor = auth(req, write=True)
+    case = require_case(case_id)
+    with db() as con:
+        photo = con.execute("SELECT * FROM evidence WHERE id=? AND case_id=?", (evidence_id, case_id)).fetchone()
+    if not photo:
+        raise HTTPException(404, "La fotografia no pertenece al expediente")
+    try:
+        result = analyze_photo(str(UPLOADS / photo["filename"]), photo["shot"], case["asset_type"])
+    except (RuntimeError, ValueError, json.JSONDecodeError) as exc:
+        # Avoid leaking private inputs or provider credentials.
+        raise HTTPException(503, str(exc)[:250]) from exc
+    rid = str(uuid.uuid4())
+    with db() as con:
+        con.execute("INSERT INTO visual_assessments(id,case_id,evidence_id,state,result_json,created_at) VALUES(?,?,?,?,?,?)",
+                    (rid,case_id,evidence_id,"pendiente",json.dumps(result,ensure_ascii=False),now()))
+        con.execute("UPDATE cases SET updated_at=? WHERE id=?", (now(),case_id))
+    log(actor,"analisis_visual_pendiente",case_id)
+    return {"id":rid,"state":"pendiente","result":result,
+            "warning":"Observaciones automaticas no verificadas; un revisor debe confirmarlas. Ningun credito se aprueba automaticamente."}
+
+@app.put("/api/visual-assessments/{assessment_id}/review")
+def review_visual(assessment_id: str, data: VisualReview, req: Request):
+    actor = auth(req, write=True, review=True)
+    if data.state not in ("confirmado","descartado"):
+        raise HTTPException(422, "Selecciona confirmado o descartado")
+    with db() as con:
+        assessment = con.execute("SELECT case_id FROM visual_assessments WHERE id=?", (assessment_id,)).fetchone()
+        if not assessment:
+            raise HTTPException(404, "Analisis no encontrado")
+        con.execute("UPDATE visual_assessments SET state=?,reviewer=?,reviewed_at=? WHERE id=?",
+                    (data.state,actor,now(),assessment_id))
+    log(actor,"revisar_analisis_visual",assessment["case_id"])
+    return {"state":data.state}
+
+@app.post("/api/cases/{case_id}/credit-simulation")
+def credit_simulation(case_id: str, data: CreditSimulation, req: Request):
+    actor = auth(req, review=True)
+    case = serialize_case(require_case(case_id))
+    if not case["source"].strip():
+        return {"status":"pendiente","suggested_amount":None,"reason":"Falta documentar la fuente de valor base."}
+    outcome = simulate_credit(case["visual_condition"],case["base_value"],data.documented_budget)
+    log(actor,"simular_microcredito",case_id)
+    return {**outcome,"currency":"PEN","budget_source":data.budget_source,
+            "warning":"Simulacion academica, no vinculante. Requiere verificacion fisica, tasacion, analisis de pago y aprobacion de la entidad."}
 
 @app.get("/api/cases/{case_id}/report.json")
 def report_json(case_id: str, req: Request):
