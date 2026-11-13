@@ -1,0 +1,42 @@
+name: YOLO five-defect ONNX CPU verification
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'yolo_defects.py'
+      - 'inspection_taxonomy.py'
+      - 'tests/test_defect5.py'
+      - '.github/workflows/test-defect5.yml'
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt pytest httpx
+      - name: Validate real published model in CPU
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from PIL import Image,ImageDraw
+          from yolo_defects import download_model,detect_defects,session
+          p=download_model()
+          print('verified checkpoint:', p,'bytes:',p.stat().st_size)
+          sess=session()
+          print('input:',sess.get_inputs()[0].shape)
+          print('outputs:',[(v.name,v.shape) for v in sess.get_outputs()])
+          img=Image.new('RGB',(640,640),'#e4ded1')
+          dr=ImageDraw.Draw(img)
+          dr.line([(110,70),(174,130),(210,250),(392,420),(430,570)],fill='#33332f',width=5)
+          img.save('/tmp/fisura-sintetica.jpg')
+          detections, annotated=detect_defects('/tmp/fisura-sintetica.jpg')
+          assert isinstance(detections,list)
+          assert annotated.size==(640,640)
+          assert all(d['category'] in ('fisura_visible','moho_visible','pintura_desprendida','grieta_escalonada','humedad_visible') for d in detections)
+          print('REAL INFERENCE OK; synthetic candidates:',len(detections))
+          PY
+      - name: Unit and endpoint checks
+        run: python -m pytest tests/test_defect5.py -q
