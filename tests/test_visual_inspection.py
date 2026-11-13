@@ -152,3 +152,60 @@ def test_repeated_manual_review_uses_most_recent():
     assert client.post(url,json={"condition":"aparentemente_bueno"}).status_code==200
     result=client.get("/api/cases/"+cid).json()["visual_condition"]
     assert result["condition_score"]==100
+
+
+def test_yolo_onnx_integration_with_backend(monkeypatch):
+    # API route test; real neural inference is separately verified in ONNX CPU Actions.
+    from PIL import Image
+    client=TestClient(app)
+    assert client.post("/api/login",json={
+        "username":"administrador","password":"strong-test-password"}).status_code==200
+    case=client.post("/api/cases",json={
+        "asset_type":"vivienda","title":"Detección automática"}).json()
+    cid=case["id"]
+    photo=client.post("/api/cases/"+cid+"/evidence",data={"shot":"Fachada"},
+                      files={"file":("casa.jpg",make_photo(),"image/jpeg")}).json()
+    eid=photo["id"]
+    monkeypatch.setenv("YOLO_CPU_ENABLED","1")
+    def mock_model(path):
+        assert path.endswith(".jpg")
+        return [{
+            "category":"fisura_visible","confidence":0.94,
+            "severity":"leve","origin":"yolo_onnx_fisuras",
+            "description":"Posible fisura visible detectada",
+            "improvement":"Validar presencia y alcance en visita",
+            "box":[8,8,25,50]
+        }], Image.new("RGB",(64,64))
+    monkeypatch.setattr(server,"predict_cracks",mock_model)
+    result=client.post("/api/cases/"+cid+"/automatic-inspection/"+eid)
+    assert result.status_code==200, result.text
+    body=result.json()
+    assert body["state"]=="pendiente"
+    assert body["result"]["method"]=="yolo_cpu_onnx"
+    assert body["result"]["condition"]=="requiere_mejoras"
+    assert len(body["result"]["issues"])==1
+    overlay=client.get("/api/evidence/"+eid+"/yolo-overlay")
+    assert overlay.status_code==200
+    assert overlay.headers["content-type"].startswith("image/jpeg")
+    assert client.get("/api/cases/"+cid).json()["visual_condition"]["condition_score"] is None
+    assert client.put("/api/visual-assessments/"+body["id"]+"/review",
+                      json={"state":"confirmado"}).status_code==200
+    condition=client.get("/api/cases/"+cid).json()["visual_condition"]
+    assert condition["score_status"]=="provisional_parcial"
+    assert condition["condition_score"]==95
+    assert condition["credit_ready"] is False
+
+
+def test_yolo_no_fissure_does_not_mean_safe(monkeypatch):
+    from PIL import Image
+    client=TestClient(app)
+    client.post("/api/login",json={"username":"administrador","password":"strong-test-password"})
+    case=client.post("/api/cases",json={"asset_type":"vivienda","title":"Fachada sin fisuras detectadas"}).json()
+    eid=client.post("/api/cases/"+case["id"]+"/evidence",data={"shot":"Fachada"},
+       files={"file":("casa.jpg",make_photo(),"image/jpeg")}).json()["id"]
+    monkeypatch.setenv("YOLO_CPU_ENABLED","1")
+    monkeypatch.setattr(server,"predict_cracks",lambda path:([],Image.new("RGB",(64,64))))
+    response=client.post("/api/cases/"+case["id"]+"/automatic-inspection/"+eid)
+    assert response.status_code==200
+    assert response.json()["result"]["condition"]=="no_determinable"
+    assert "NO acredita" in response.json()["result"]["summary"]
