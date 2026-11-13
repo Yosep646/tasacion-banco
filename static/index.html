@@ -289,8 +289,14 @@ body{background:linear-gradient(125deg,#f4f7fc 0%,#edf4ff 56%,#f8fafc 100%)}
 </style></head><body>
 <div id="loginPanel" class="card auth hide"><div class="brand"><span class="logo">TV</span><div><h1 class="heading">Tasación Visual</h1><p class="muted">Ingreso seguro al sistema</p></div></div>
 <form id="loginForm"><div class="field"><label>Usuario</label><input id="user" autocomplete="username" required placeholder="administrador"></div><div class="field"><label>Contraseña</label><input id="pass" type="password" autocomplete="current-password" required></div><button class="primary" style="width:100%">Ingresar</button></form><p id="loginError" class="danger"></p></div>
-<div id="mainPanel" class="shell hide"><header class="top"><div class="brand"><span class="logo">TV</span><div><h1 class="heading">Tasación Visual</h1><div class="muted">Análisis de evidencias · Valoración referencial</div></div></div><div class="flex"><span id="who" class="pill"></span><button class="secondary" id="logout">Cerrar sesión</button></div></header>
-<div class="layout"><aside class="side"><div class="card"><div class="side-title"><b>Mis expedientes</b><span class="side-count" id="caseCount">0 registrados</span></div><p class="muted" style="font-size:13px;line-height:1.6">Gestiona tus inspecciones y revisa cada tasación.</p><button class="primary" id="quickStart" style="width:100%;margin:10px 0 3px">⚡ Evaluación rápida con IA</button><button class="secondary" id="newCase" style="width:100%;margin:8px 0 3px">＋ Expediente avanzado</button><div class="sidebar-label">Buscar expediente</div><input id="caseSearch" type="search" placeholder="Buscar por nombre o activo…" aria-label="Buscar expedientes"><div class="sidebar-label">Expedientes recientes</div><div id="caseList"></div></div></aside><main><div class="card" id="workspace"><div class="empty">Crea o selecciona un expediente para empezar</div></div><div id="notice" role="status" aria-live="polite"></div></main></div></div>
+<div id="mainPanel" class="shell hide"><div class="layout">
+<aside class="side"><header class="top"><div class="brand"><span class="logo">TV</span><div><h1 class="heading">Tasación Visual</h1><div class="muted">Análisis de evidencias · Valoración referencial</div></div></div></header>
+<div class="card side-panel"><div class="side-navigation"><button class="primary" id="quickStart" type="button">⚡ &nbsp; Evaluación rápida con IA</button><button class="secondary" id="newCase" type="button">◇ &nbsp; Expediente avanzado</button></div>
+<div class="sidebar-label">BUSCAR EXPEDIENTE</div><div class="search-wrap"><span aria-hidden="true">⌕</span><input id="caseSearch" type="search" placeholder="Buscar expediente…" aria-label="Buscar expedientes"></div>
+<div class="side-title sidebar-label"><span>EXPEDIENTES RECIENTES</span><span class="side-count" id="caseCount">0</span></div><div id="caseList"></div></div>
+<div class="side-footer"><span class="side-avatar">TV</span><div class="side-user"><strong id="who">administrador</strong><small>Cuenta del sistema</small></div><button class="side-logout" id="logout" type="button" title="Cerrar sesión" aria-label="Cerrar sesión">⇥</button></div></aside>
+<main class="main-area"><div class="card" id="workspace"><div class="empty">Selecciona una evaluación para comenzar</div></div><div id="notice" role="status" aria-live="polite"></div></main>
+</div></div>
 <script>
 const $=id=>document.getElementById(id);let selected=null,current=null,tab='general',userRole='',visionEnabled=false,yoloCpuEnabled=false;
 const escapeHTML=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -307,60 +313,58 @@ function renderQuickStart(){
  selected=null;
  current=null;
  drawCases();
- $('workspace').innerHTML='<div class="quick-top"><div><span class="quick-eyebrow"><span class="live-dot"></span> ASISTENTE DE INSPECCIÓN VISUAL</span>'+
- '<h2>Una inspección más simple. Una decisión mejor informada.</h2><p>Carga una fotografía de la vivienda y añade una del interior si la tienes. Analizamos posibles fisuras y generamos un informe visual preliminar en un mismo paso.</p></div>'+
- '<div class="quick-top-badge"><span>1–2</span><small>fotografías</small></div></div>'+
- '<div class="quick-stepper" aria-label="Etapas del análisis"><div class="step is-current"><b>01</b><span>Subir imágenes</span></div><div class="step"><b>02</b><span>Análisis con IA</span></div><div class="step"><b>03</b><span>Informe listo</span></div></div>'+
- '<div class="quick-main-grid"><form id="quickForm" class="quick-new-form">'+
- '<div class="quick-section-heading"><div><h3>Agrega las fotografías</h3><p>Con una sola imagen puedes comenzar. La segunda mejora la cobertura visual.</p></div><span class="quick-optional-tag">Hasta 2 fotos</span></div>'+
- '<div class="quick-upload-grid"><label class="quick-upload-card" id="exteriorCard"><input id="exteriorFile" type="file" name="exterior" accept="image/jpeg,image/png,image/webp" required>'+
- '<span class="upload-symbol" aria-hidden="true">⌁</span><span class="upload-title">Vista exterior <em>Obligatoria</em></span><span class="upload-help">Fachada, pared o acceso de la vivienda</span>'+
- '<img class="upload-preview" id="exteriorPreview" alt="Vista previa de la fotografía exterior" hidden><span class="upload-file-name" id="exteriorName">Elegir imagen exterior</span></label>'+
- '<label class="quick-upload-card" id="interiorCard"><input id="interiorFile" type="file" name="interior" accept="image/jpeg,image/png,image/webp">'+
- '<span class="upload-symbol" aria-hidden="true">＋</span><span class="upload-title">Vista interior <em class="tag-optional">Opcional</em></span><span class="upload-help">Habitación, pared o techo</span>'+
- '<img class="upload-preview" id="interiorPreview" alt="Vista previa de la fotografía interior" hidden><span class="upload-file-name" id="interiorName">Añadir imagen interior</span></label></div>'+
- '<p class="upload-security">Formatos: JPG, PNG o WebP · Máximo 8 MB por foto · Tus imágenes se almacenan en el expediente.</p>'+
- '<div class="quick-submit-area"><button class="primary quick-action-btn" type="submit" id="quickAnalyzeBtn"><span aria-hidden="true">✦</span> Analizar vivienda y generar informe</button>'+
- '<span class="quick-action-caption">Sin cuestionarios ni registro manual de daños.</span></div>'+
- '<div class="quick-progress" id="quickProgress" role="status" aria-live="polite" hidden><span class="progress-spinner" aria-hidden="true"></span><span id="quickProgressText"></span></div></form>'+
- '<aside class="quick-aside"><div class="side-explainer"><span class="quick-small-label">EN UN SOLO ANÁLISIS</span><h3 class="quick-aside-heading">Del diagnóstico visual al informe</h3>'+
- '<div class="side-feature"><span class="feature-icon">⌗</span><div><b>Detección visual</b><p>Posibles fisuras resaltadas en la fotografía.</p></div></div>'+
- '<div class="side-feature"><span class="feature-icon">▤</span><div><b>Informe inmediato</b><p>Hallazgos, recomendaciones y PDF descargable.</p></div></div>'+
- '<div class="side-feature"><span class="feature-icon">◇</span><div><b>Estimación responsable</b><p>Sin inventar precios, dimensiones ni valor comercial.</p></div></div></div>'+
- '<div class="quick-scope"><b>Importante sobre el resultado</b><p>YOLO reconoce posibles fisuras. El reconocimiento de más materiales o daños necesita modelos adicionales. Una foto no demuestra seguridad estructural.</p></div></aside></div>';
+ $('workspace').innerHTML='<section class="one-hero"><div class="one-hero-copy"><h2>Evalúa una vivienda <span>con IA</span> en minutos</h2>'+
+ '<p>Sube una foto exterior y, si deseas, una interior. El sistema detecta posibles fisuras y genera un informe visual preliminar.</p></div>'+
+ '<div class="one-hero-illustration" role="img" aria-label="Fachada de una vivienda moderna"></div></section>'+
+ '<div class="one-workflow"><span class="one-stage active"><b>1</b> Subir imágenes</span><span class="one-stage"><b>2</b> Análisis con IA</span><span class="one-stage"><b>3</b> Informe listo</span></div>'+
+ '<div class="one-main-grid"><section class="one-main-panel"><form id="quickForm"><div class="one-upload-grid">'+
+ '<div class="one-photo-card"><div class="one-photo-heading"><span class="one-photo-icon" aria-hidden="true">⌂</span><div><h3>Vista exterior</h3><span class="one-photo-required">Obligatoria</span></div></div>'+
+ '<label for="exteriorFile" class="one-drop" id="exteriorCard"><span class="one-image-icon" aria-hidden="true">▧</span><strong>Selecciona una fotografía</strong><small>Fachada, muro o acceso principal</small><span class="one-select">↑ &nbsp; Seleccionar archivo</span><img class="upload-preview" id="exteriorPreview" alt="Vista previa de la fotografía exterior" hidden><span class="upload-file-name" id="exteriorName"></span></label>'+
+ '<input class="one-file-input" id="exteriorFile" type="file" name="exterior" accept="image/jpeg,image/png,image/webp" required aria-label="Adjuntar fotografía exterior"></div>'+
+ '<div class="one-photo-card"><div class="one-photo-heading"><span class="one-photo-icon" aria-hidden="true">▣</span><div><h3>Vista interior</h3><span class="one-photo-required optional">Opcional</span></div></div>'+
+ '<label for="interiorFile" class="one-drop" id="interiorCard"><span class="one-image-icon" aria-hidden="true">▧</span><strong>Selecciona una fotografía</strong><small>Habitación, pared o techo</small><span class="one-select">↑ &nbsp; Seleccionar archivo</span><img class="upload-preview" id="interiorPreview" alt="Vista previa de la fotografía interior" hidden><span class="upload-file-name" id="interiorName"></span></label>'+
+ '<input class="one-file-input" id="interiorFile" type="file" name="interior" accept="image/jpeg,image/png,image/webp" aria-label="Adjuntar fotografía interior"></div></div>'+
+ '<div class="one-bottom-action"><button class="primary quick-action-btn" type="submit" id="quickAnalyzeBtn">✦ &nbsp; Analizar vivienda y generar informe &nbsp; →</button><span>ϟ &nbsp; Sin formularios manuales</span></div>'+
+ '<div class="quick-progress" id="quickProgress" role="status" aria-live="polite" hidden><span class="progress-spinner" aria-hidden="true"></span><span id="quickProgressText"></span></div></form></section>'+
+ '<aside class="one-info-col"><section class="one-info-card"><h3><span class="one-info-icon">◎</span> ¿Qué recibirás?</h3>'+
+ '<div class="one-feature"><span>▧</span><div><strong>Detección visual</strong><p>Posibles fisuras resaltadas en la fotografía.</p></div></div>'+
+ '<div class="one-feature"><span>▤</span><div><strong>Informe inmediato</strong><p>Resultados y recomendaciones en PDF.</p></div></div>'+
+ '<div class="one-feature"><span>◇</span><div><strong>Estimación responsable</strong><p>Análisis referencial, sin sustituir una tasación profesional.</p></div></div></section>'+
+ '<section class="one-info-card one-status-card"><h3><span class="one-info-icon">▥</span> Estado del análisis</h3>'+
+ '<div class="one-status-chips"><span class="one-status-good">✓ YOLO configurado</span><span>▧ 1–2 fotos</span></div></section>'+
+ '<section class="one-info-card one-model-card"><h3><span class="one-info-icon">▱</span> Alcance del modelo</h3><p>YOLO detecta posibles fisuras. Para reconocer otros materiales y desperfectos se requieren modelos adicionales. La validación final corresponde a un profesional.</p></section></aside></div>';
  const form=$('quickForm');
  function updatePreview(kind){
-   const input=$(kind+'File'), card=$(kind+'Card'),preview=$(kind+'Preview'),label=$(kind+'Name'),file=input.files[0];
+   const input=$(kind+'File'),card=$(kind+'Card'),preview=$(kind+'Preview'),label=$(kind+'Name'),file=input.files[0];
    if(preview.dataset.url){URL.revokeObjectURL(preview.dataset.url);delete preview.dataset.url}
-   if(!file){preview.hidden=true;preview.removeAttribute('src');card.classList.remove('has-photo');label.textContent=kind==='exterior'?'Elegir imagen exterior':'Añadir imagen interior';return}
-   const okay=['image/jpeg','image/png','image/webp'].includes(file.type)&&file.size<=8*1024*1024&&file.size>0;
-   if(!okay){input.value='';preview.hidden=true;card.classList.remove('has-photo');label.textContent=kind==='exterior'?'Elegir imagen exterior':'Añadir imagen interior';note('Solo JPG, PNG o WebP de hasta 8 MB.');return}
+   if(!file){preview.hidden=true;preview.removeAttribute('src');card.classList.remove('has-photo');label.textContent='';return}
+   if(!['image/jpeg','image/png','image/webp'].includes(file.type)||!file.size||file.size>8*1024*1024){
+     input.value='';preview.hidden=true;card.classList.remove('has-photo');label.textContent='';note('Admite JPG, PNG o WebP de máximo 8 MB.');return
+   }
    const url=URL.createObjectURL(file);preview.src=url;preview.dataset.url=url;preview.hidden=false;
-   card.classList.add('has-photo');label.textContent=file.name.length>28?file.name.slice(0,25)+'…':file.name;
+   card.classList.add('has-photo');label.textContent=file.name.length>33?file.name.slice(0,30)+'…':file.name;
    note('');
  }
  ['exterior','interior'].forEach(kind=>$(kind+'File').addEventListener('change',()=>updatePreview(kind)));
  form.onsubmit=async event=>{
    event.preventDefault();
-   if(!$('exteriorFile').files.length){note('Adjunta una fotografía exterior para comenzar.');return}
+   if(!$('exteriorFile').files.length){note('Selecciona una fotografía exterior para iniciar.');return}
    const button=$('quickAnalyzeBtn'),progress=$('quickProgress'),status=$('quickProgressText');
-   button.disabled=true;button.textContent='Analizando fotografías…';progress.hidden=false;
-   status.textContent='Analizando las imágenes y generando el informe. El primer análisis puede descargar el modelo.';
+   button.disabled=true;button.textContent='Analizando las fotografías…';progress.hidden=false;
+   status.textContent='Procesando fotografías y preparando el informe. El modelo puede descargarse en la primera ejecución.';
    note('');
    try{
      const response=await fetch('/api/quick-inspection',{method:'POST',body:new FormData(form),credentials:'same-origin'});
      const body=await response.json().catch(()=>({}));
-     if(!response.ok)throw Error(typeof body.detail==='string'?body.detail:'No fue posible completar el análisis (HTTP '+response.status+').');
-     selected=body.case_id;
-     renderQuickResults(body);
+     if(!response.ok)throw Error(typeof body.detail==='string'?body.detail:'No se pudo completar el análisis (HTTP '+response.status+').');
+     selected=body.case_id;renderQuickResults(body);
      window.allCases=await request('/api/cases');
      const count=$('caseCount');if(count)count.textContent=window.allCases.length+' registrados';
      drawCases();
-     note(body.status==='analisis_no_disponible'?'El informe se generó, pero la inferencia no estuvo disponible.':'Informe preliminar generado correctamente.');
+     note(body.status==='analisis_no_disponible'?'Informe generado sin inferencia de IA disponible.':'Informe visual preliminar generado.');
    }catch(error){
-     progress.hidden=false;progress.classList.add('is-error');
-     status.textContent='No se pudo completar: '+error.message;
-     button.disabled=false;button.innerHTML='<span aria-hidden="true">✦</span> Volver a analizar';
+     progress.classList.add('is-error');status.textContent='No se pudo completar: '+error.message;
+     button.disabled=false;button.textContent='✦ Analizar vivienda y generar informe →';
    }
  };
 }
