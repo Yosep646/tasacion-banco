@@ -1,0 +1,41 @@
+name: Validar paquete de tasación antes del despliegue
+on:
+  push:
+    branches: [main, preparar-tasacion-yolo-v9-render]
+  workflow_dispatch:
+jobs:
+  archivos:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Comprobar archivos esenciales
+        run: |
+          set -euo pipefail
+          for file in Dockerfile render.yaml requirements.txt server.py vision.py domain.py report.py config.json; do
+            test -s "$file" || { echo "::error file=$file::Falta el archivo obligatorio"; exit 1; }
+          done
+          for file in weights/yolov8n.pt weights/vivienda-fisuras.pt weights/vivienda-fisuras-piloto.pt; do
+            test -s "$file" || { echo "::error file=$file::Falta el modelo obligatorio"; exit 1; }
+            test "$(stat -c%s "$file")" -gt 1000000 || { echo "::error file=$file::Peso incompleto"; exit 1; }
+          done
+      - name: Comprobar sintaxis Python
+        run: python -m compileall -q server.py vision.py domain.py report.py train.py
+  pruebas:
+    needs: archivos
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+      - name: Pruebas de API y negocio
+        env:
+          TASACION_REVISOR_PASSWORD: "CI-Password-for-tests-only-2026"
+        run: python -m pytest -q
+      - name: Inferencia de los tres modelos
+        run: python validar_modelos.py
+      - name: Crear imagen Docker
+        run: docker build -t tasacion-yolo:verify .
