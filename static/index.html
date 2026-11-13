@@ -104,14 +104,14 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 <div id="mainPanel" class="shell hide"><header class="top"><div class="brand"><span class="logo">TV</span><div><h1 class="heading">Tasación Visual</h1><div class="muted">Análisis de evidencias · Valoración referencial</div></div></div><div class="flex"><span id="who" class="pill"></span><button class="secondary" id="logout">Cerrar sesión</button></div></header>
 <div class="layout"><aside class="side"><div class="card"><div class="side-title"><b>Mis expedientes</b><span class="side-count" id="caseCount">0 registrados</span></div><p class="muted" style="font-size:13px;line-height:1.6">Gestiona tus inspecciones y revisa cada tasación.</p><button class="primary" id="newCase" style="width:100%;margin:10px 0 3px">＋ Nuevo expediente</button><div class="sidebar-label">Buscar expediente</div><input id="caseSearch" type="search" placeholder="Buscar por nombre o activo…" aria-label="Buscar expedientes"><div class="sidebar-label">Expedientes recientes</div><div id="caseList"></div></div></aside><main><div class="card" id="workspace"><div class="empty">Crea o selecciona un expediente para empezar</div></div><div id="notice" role="status" aria-live="polite"></div></main></div></div>
 <script>
-const $=id=>document.getElementById(id);let selected=null,current=null,tab='general',userRole='',visionEnabled=false;
+const $=id=>document.getElementById(id);let selected=null,current=null,tab='general',userRole='',visionEnabled=false,yoloCpuEnabled=false;
 const escapeHTML=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const money=n=>'S/ '+Number(n||0).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
 async function request(path,options={}){let r=await fetch(path,{credentials:'same-origin',...options});let x=await r.json().catch(()=>({}));if(!r.ok)throw Error(typeof x.detail==='string'?x.detail:'Error HTTP '+r.status);return x}
 const json=(method,body)=>({method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
 function note(text){$('notice').textContent=text}
 function showLogin(){ $('mainPanel').classList.add('hide');$('loginPanel').classList.remove('hide')}
-async function boot(){try{let me=await request('/api/me');userRole=me.role;$('who').textContent=me.username;$('loginPanel').classList.add('hide');$('mainPanel').classList.remove('hide');const health=await request('/health');visionEnabled=Boolean(health.vision_enabled);await refresh()}catch(e){showLogin()}}
+async function boot(){try{let me=await request('/api/me');userRole=me.role;$('who').textContent=me.username;$('loginPanel').classList.add('hide');$('mainPanel').classList.remove('hide');const health=await request('/health');visionEnabled=Boolean(health.vision_enabled);yoloCpuEnabled=Boolean(health.yolo_cpu_enabled);await refresh()}catch(e){showLogin()}}
 $('loginForm').onsubmit=async ev=>{ev.preventDefault();try{await request('/api/login',json('POST',{username:$('user').value,password:$('pass').value}));$('pass').value='';await boot()}catch(e){$('loginError').textContent=e.message}};
 $('logout').onclick=async()=>{await request('/api/logout',{method:'POST'});showLogin()};
 async function refresh(){let cs=await request('/api/cases');window.allCases=cs;const counter=$('caseCount');if(counter)counter.textContent=cs.length+' registrados';drawCases();if(selected)await choose(selected,false);else if(cs.length===0)$('newCase').click()}
@@ -125,7 +125,7 @@ if(tab==='evidencias'){h.innerHTML='<h3>Capturar evidencia</h3><form id="uploadF
 if(tab==='inspeccion'){
  const ins=c.visual_condition||{},shots=ins.required_shots||['Fachada','Paredes','Techo','Interior'];
  const items=c.visual_assessments||[],evidence=c.evidence||[];
- const status=visionEnabled?'<span class="pill">IA multimodal configurada</span>':'<span class="pill">Revisión visual manual disponible</span>';
+ const status=yoloCpuEnabled&&c.asset_type==='vivienda'?'<span class="pill">YOLO activo · detección de fisuras</span>':visionEnabled?'<span class="pill">Visión multimodal disponible</span>':'<span class="pill">Inspección manual disponible</span>';
  const conditionLabels={aparentemente_bueno:'Aparentemente conservado',requiere_mejoras:'Mejoras visibles',no_determinable:'No determinable'};
  const photos=evidence.map((image,i)=>{
    const assessment=items.find(a=>a.evidence_id===image.id);
@@ -133,8 +133,9 @@ if(tab==='inspeccion'){
    if(assessment){
      let v={};try{v=JSON.parse(assessment.result_json)}catch(err){}
      observations='<div class="visual-result"><div class="flex"><strong>'+escapeHTML(conditionLabels[v.condition]||'Sin conclusión')+'</strong><span class="pill">'+escapeHTML(assessment.state)+'</span></div>'+
-       '<small class="muted">'+(v.method==='manual_review'?'Observación del revisor':'Propuesta de IA pendiente de revisión')+'</small>'+
+       '<small class="muted">'+(v.method==='manual_review'?'Observación del revisor':v.method==='yolo_cpu_onnx'?'YOLO ONNX · detección automática de posibles fisuras':'Propuesta de IA pendiente de revisión')+'</small>'+
        '<p>'+escapeHTML(v.summary||'Sin resumen')+'</p>'+
+       (v.annotated_url?'<img class="inspection-photo" src="'+escapeHTML(v.annotated_url)+'" alt="Fotografía con posibles fisuras señaladas">':'')+
        (v.materials||[]).map(x=>'<span class="material-chip">'+escapeHTML(x.name)+'</span>').join('')+
        (v.issues||[]).map(x=>'<p class="finding-line"><b>'+escapeHTML(x.category)+'</b> · '+escapeHTML(x.severity)+' — '+escapeHTML(x.description)+'<br><small>Mejora: '+escapeHTML(x.improvement)+'</small></p>').join('')+
        (v.limitations||[]).map(x=>'<p class="muted">Límite: '+escapeHTML(x)+'</p>').join('')+
@@ -152,13 +153,13 @@ if(tab==='inspeccion'){
    return '<article class="inspection-card"><div class="inspection-number">'+String(i+1).padStart(2,'0')+'</div>'+
    '<div class="inspection-body"><div class="flex" style="justify-content:space-between"><h3>'+escapeHTML(image.shot)+'</h3><span class="pill">Foto '+(i+1)+'</span></div>'+
    '<img class="inspection-photo" src="/api/evidence/'+image.id+'" alt="Fotografía adjunta de '+escapeHTML(image.shot)+'">'+
-   (visionEnabled?'<button class="primary" data-vision="'+image.id+'">Analizar fotografía con IA</button>':'')+
+   ((yoloCpuEnabled&&c.asset_type==='vivienda')?'<button class="primary" data-yolo-cpu="'+image.id+'">Detectar fisuras con YOLO</button>':visionEnabled?'<button class="primary" data-vision="'+image.id+'">Analizar fotografía con IA multimodal</button>':'')+
    manualForm+observations+'</div></article>';
  }).join('');
  const optional=shots.map(x=>'<span class="material-chip">'+escapeHTML(x)+'</span>').join('');
  h.innerHTML='<div class="form-intro"><div><span class="form-eyebrow">Microcrédito / Inspección fotográfica</span><h2>Evaluación visual del activo</h2><p>Comienza con una sola fotografía. Las demás vistas son recomendadas para ampliar la inspección, no son obligatorias para registrar observaciones.</p></div>'+status+'</div>'+
  '<div class="grid" style="margin:24px 0"><div class="metric"><small>Fotografías registradas</small><strong>'+evidence.length+'</strong><small>'+ins.coverage+'% de vistas sugeridas</small></div><div class="metric"><small>Puntaje visual</small><strong>'+(ins.condition_score===null?'Por evaluar':ins.condition_score+'/100')+'</strong><small>'+(ins.score_status==='provisional_parcial'?'Provisional — cobertura parcial':ins.score_status==='referencial_revisado'?'Referencial revisado':'Falta revisión')+'</small></div></div>'+
- (!visionEnabled?'<div class="vision-warning"><b>IA automática aún sin conexión.</b> Render no dispone de OPENAI_API_KEY. Puedes guardar una inspección <b>manual, identificada como tal</b>. Para detectar materiales o daños automáticamente se necesita conectar un proveedor de visión; no se inventan resultados.</div>':'<div class="vision-warning">Si utilizas el análisis automático, las fotografías se enviarán al proveedor externo configurado. Asegúrate de contar con autorización para procesarlas.</div>')+
+ ((yoloCpuEnabled&&c.asset_type==='vivienda')?'<div class="vision-warning"><b>Detección YOLO de fisuras disponible.</b> Adjunta la foto y pulsa «Detectar fisuras con YOLO». El sistema señalará posibles fisuras, pero este modelo <b>no determina si toda la vivienda está bien</b> ni identifica automáticamente calamina, concreto o paredes sin tarrajear. Los resultados requieren revisión.</div>':visionEnabled?'<div class="vision-warning">La fotografía será procesada por el proveedor multimodal configurado. Utiliza solo imágenes que tengas autorización para enviar.</div>':'<div class="vision-warning"><b>Modelo automático no disponible.</b> Puedes registrar observaciones manuales claramente identificadas mientras se configura un detector válido.</div>')+
  '<section class="single-upload"><h3>Adjuntar fotografía para evaluar</h3><p class="muted">Una foto es suficiente para comenzar. Elige la vista que representa; puedes agregar otras después.</p><form id="singleInspectionUpload" class="form-grid"><div class="field"><label>Vista de la fotografía</label><select name="shot">'+shots.map(x=>'<option value="'+escapeHTML(x)+'">'+escapeHTML(x)+'</option>').join('')+'<option value="General">Otra vista / General</option></select></div><div class="field"><label>Imagen (JPG, PNG o WebP, máximo 8 MB)</label><input name="file" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" required></div><div class="field field-wide"><button type="submit" class="primary">Guardar fotografía</button></div></form><div class="suggested-views"><small class="muted">Vistas recomendadas para una evaluación más completa:</small><div>'+optional+'</div></div></section>'+
  '<h3 style="margin-top:27px">Fotografías del expediente</h3>'+
  (photos?'<div class="inspection-grid">'+photos+'</div>':'<div class="inspection-placeholder">📷<span>Adjunta una fotografía para iniciar la evaluación</span></div>')+
@@ -172,6 +173,14 @@ if(tab==='inspeccion'){
        await choose(c.id);note('Fotografía guardada. Puedes evaluarla sin subir las otras tres vistas.');
    }catch(ex){note(ex.message);btn.disabled=false;btn.textContent='Guardar fotografía'}
  };
+ document.querySelectorAll('[data-yolo-cpu]').forEach(btn=>btn.onclick=async()=>{
+   btn.disabled=true;btn.textContent='YOLO examinando la imagen...';
+   try{
+      const result=await request('/api/cases/'+c.id+'/automatic-inspection/'+btn.dataset.yoloCpu,{method:'POST'});
+      await choose(c.id);
+      note(result.result.issues.length+' posible(s) fisura(s) detectada(s) por YOLO, pendientes de revisión.');
+   }catch(ex){note(ex.message);btn.disabled=false;btn.textContent='Detectar fisuras con YOLO'}
+ });
  document.querySelectorAll('[data-vision]').forEach(btn=>btn.onclick=async()=>{
    btn.disabled=true;btn.textContent='Analizando...';
    try{await request('/api/cases/'+c.id+'/vision/'+btn.dataset.vision,{method:'POST'});
