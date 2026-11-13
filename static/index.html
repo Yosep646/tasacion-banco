@@ -385,6 +385,23 @@ body{background:#f1f5fc}
 @media(max-width:1200px){#mainPanel .layout{grid-template-columns:265px minmax(0,1fr)}.one-main-grid{grid-template-columns:1fr}.one-info-col{grid-template-columns:1fr 1fr}.one-info-col .one-model-card{grid-column:1/-1}.one-hero-illustration{width:38%}.one-hero h2{font-size:34px}}
 @media(max-width:830px){#mainPanel .layout{grid-template-columns:1fr}#mainPanel .side{padding:15px 20px;min-height:0}#mainPanel .side .top{padding-bottom:10px}#mainPanel .side-panel{display:block}#mainPanel .side-navigation{display:flex;gap:8px;margin:8px 0 10px}#mainPanel .side-navigation button{font-size:12px;min-height:45px}#mainPanel .side .sidebar-label,#mainPanel .search-wrap,#mainPanel #caseList,#mainPanel .side-footer{display:none}#mainPanel #workspace{min-height:0}.one-hero{min-height:240px}.one-hero-copy{max-width:500px}}
 @media(max-width:590px){#mainPanel #workspace{padding:0 13px 18px!important}.one-hero{margin:0 -13px 16px;min-height:300px;padding:20px 18px;align-items:flex-end}.one-hero-illustration{width:100%;height:170px;top:0;bottom:auto;background-position:center 48%;opacity:.5}.one-hero-copy{padding-top:100px}.one-hero h2{font-size:30px}.one-hero p{font-size:12px}.one-workflow{padding:10px 8px;gap:5px}.one-stage{font-size:10px;gap:5px}.one-stage b{width:26px;height:26px}.one-main-panel{padding:14px;border-radius:17px}.one-upload-grid,.one-info-col{grid-template-columns:1fr}.one-info-col .one-model-card{grid-column:auto}.one-drop{min-height:210px}.one-bottom-action .quick-action-btn{min-width:100%}.one-bottom-action>span{max-width:100%;width:100%}#mainPanel .side-navigation button{font-size:10px;padding:10px}#mainPanel .side .heading{font-size:18px}}
+
+.result-improvements{margin-top:24px;border:1px solid #dbe6f5;border-radius:18px;background:#f9fbff;padding:17px}
+.improvements-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.improvement-item{display:flex;gap:11px;background:white;padding:16px;border:1px solid #e0e9f5;border-radius:12px}
+.improvement-index{flex-shrink:0;background:#e6f0ff;color:#2457bd;border-radius:8px;width:31px;height:31px;display:grid;place-items:center;font-weight:800;font-size:12px}
+.improvement-item strong{font-size:13px;color:#172f54}
+.improvement-item p{font-size:12px;color:#536d91;line-height:1.6}
+.improvement-item small{font-size:11px;color:#8492a8;line-height:1.5}
+.valuation-expand{margin:16px 0 4px;padding:15px;background:white;border:1px solid #d9e6f5;border-radius:12px}
+.valuation-expand summary{cursor:pointer;font-weight:760;color:#2455b9}
+.valuation-expand p{font-size:12px;line-height:1.7;color:#687a95}
+.scenario-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px;margin:16px 0}
+.scenario-fields label{display:flex;flex-direction:column;gap:7px;font-size:12px;color:#293f5b}
+.scenario-fields label:last-child{grid-column:1/-1}
+.scenario-fields input{min-height:44px;padding:10px;border:1px solid #ceddf3;border-radius:9px}
+#scenarioStatus{font-size:12px;color:#2356b8;margin-top:13px;line-height:1.6}
+@media(max-width:750px){.improvements-grid,.scenario-fields{grid-template-columns:1fr}.scenario-fields label:last-child{grid-column:1}}
 </style></head><body>
 <div id="loginPanel" class="card auth hide"><div class="brand"><span class="logo">TV</span><div><h1 class="heading">Tasación Visual</h1><p class="muted">Ingreso seguro al sistema</p></div></div>
 <form id="loginForm"><div class="field"><label>Usuario</label><input id="user" autocomplete="username" required placeholder="administrador"></div><div class="field"><label>Contraseña</label><input id="pass" type="password" autocomplete="current-password" required></div><button class="primary" style="width:100%">Ingresar</button></form><p id="loginError" class="danger"></p></div>
@@ -397,14 +414,14 @@ body{background:#f1f5fc}
 <main class="main-area"><div class="card" id="workspace"><div class="empty">Selecciona una evaluación para comenzar</div></div><div id="notice" role="status" aria-live="polite"></div></main>
 </div></div>
 <script>
-const $=id=>document.getElementById(id);let selected=null,current=null,tab='general',userRole='',visionEnabled=false,yoloCpuEnabled=false;
+const $=id=>document.getElementById(id);let selected=null,current=null,tab='general',userRole='',visionEnabled=false,yoloCpuEnabled=false,multiclassYoloEnabled=false;
 const escapeHTML=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const money=n=>'S/ '+Number(n||0).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
 async function request(path,options={}){let r=await fetch(path,{credentials:'same-origin',...options});let x=await r.json().catch(()=>({}));if(!r.ok)throw Error(typeof x.detail==='string'?x.detail:'Error HTTP '+r.status);return x}
 const json=(method,body)=>({method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
 function note(text){$('notice').textContent=text}
 function showLogin(){ $('mainPanel').classList.add('hide');$('loginPanel').classList.remove('hide')}
-async function boot(){try{let me=await request('/api/me');userRole=me.role;$('who').textContent=me.username;$('loginPanel').classList.add('hide');$('mainPanel').classList.remove('hide');const health=await request('/health');visionEnabled=Boolean(health.vision_enabled);yoloCpuEnabled=Boolean(health.yolo_cpu_enabled);await refresh()}catch(e){showLogin()}}
+async function boot(){try{let me=await request('/api/me');userRole=me.role;$('who').textContent=me.username;$('loginPanel').classList.add('hide');$('mainPanel').classList.remove('hide');const health=await request('/health');visionEnabled=Boolean(health.vision_enabled);yoloCpuEnabled=Boolean(health.yolo_cpu_enabled);multiclassYoloEnabled=Boolean(health.multiclass_yolo_enabled);await refresh()}catch(e){showLogin()}}
 $('loginForm').onsubmit=async ev=>{ev.preventDefault();try{await request('/api/login',json('POST',{username:$('user').value,password:$('pass').value}));$('pass').value='';await boot()}catch(e){$('loginError').textContent=e.message}};
 $('logout').onclick=async()=>{await request('/api/logout',{method:'POST'});showLogin()};
 
@@ -413,7 +430,7 @@ function renderQuickStart(){
  current=null;
  drawCases();
  $('workspace').innerHTML='<section class="one-hero"><div class="one-hero-copy"><h2>Evalúa una vivienda <span>con IA</span> en minutos</h2>'+
- '<p>Sube una foto exterior y, si deseas, una interior. El sistema detecta posibles fisuras y genera un informe visual preliminar.</p></div>'+
+ '<p>Sube una foto exterior y, si deseas, una interior. YOLO analiza posibles fisuras, grietas, moho, manchas de filtración y desprendimiento de pintura cuando el modelo multiclase está habilitado. Recibirás un informe preliminar.</p></div>'+
  '<div class="one-hero-illustration" role="img" aria-label="Fachada de una vivienda moderna"></div></section>'+
  '<div class="one-workflow"><span class="one-stage active"><b>1</b> Subir imágenes</span><span class="one-stage"><b>2</b> Análisis con IA</span><span class="one-stage"><b>3</b> Informe listo</span></div>'+
  '<div class="one-main-grid"><section class="one-main-panel"><form id="quickForm"><div class="one-upload-grid">'+
@@ -426,12 +443,12 @@ function renderQuickStart(){
  '<div class="one-bottom-action"><button class="primary quick-action-btn" type="submit" id="quickAnalyzeBtn">✦ &nbsp; Analizar vivienda y generar informe &nbsp; →</button><span>ϟ &nbsp; Sin formularios manuales</span></div>'+
  '<div class="quick-progress" id="quickProgress" role="status" aria-live="polite" hidden><span class="progress-spinner" aria-hidden="true"></span><span id="quickProgressText"></span></div></form></section>'+
  '<aside class="one-info-col"><section class="one-info-card"><h3><span class="one-info-icon">◎</span> ¿Qué recibirás?</h3>'+
- '<div class="one-feature"><span>▧</span><div><strong>Detección visual</strong><p>Posibles fisuras resaltadas en la fotografía.</p></div></div>'+
+ '<div class="one-feature"><span>▧</span><div><strong>Detección visual</strong><p>Posibles grietas, humedad, moho y pintura deteriorada según el modelo disponible.</p></div></div>'+
  '<div class="one-feature"><span>▤</span><div><strong>Informe inmediato</strong><p>Resultados y recomendaciones en PDF.</p></div></div>'+
  '<div class="one-feature"><span>◇</span><div><strong>Estimación responsable</strong><p>Análisis referencial, sin sustituir una tasación profesional.</p></div></div></section>'+
  '<section class="one-info-card one-status-card"><h3><span class="one-info-icon">▥</span> Estado del análisis</h3>'+
- '<div class="one-status-chips"><span class="'+(yoloCpuEnabled?"one-status-good":"")+'">'+(yoloCpuEnabled?"✓ YOLO configurado":"YOLO no disponible")+'</span><span>▧ 1–2 fotos</span></div></section>'+
- '<section class="one-info-card one-model-card"><h3><span class="one-info-icon">▱</span> Alcance del modelo</h3><p>YOLO detecta posibles fisuras. Para reconocer otros materiales y desperfectos se requieren modelos adicionales. La validación final corresponde a un profesional.</p></section></aside></div>';
+ '<div class="one-status-chips"><span class="'+(yoloCpuEnabled?"one-status-good":"")+'">'+(multiclassYoloEnabled?"✓ YOLO 5 defectos":yoloCpuEnabled?"✓ YOLO fisuras":"YOLO no disponible")+'</span><span>▧ 1–2 fotos</span></div></section>'+
+ '<section class="one-info-card one-model-card"><h3><span class="one-info-icon">▱</span> Alcance del modelo</h3><p>YOLO multiclase reconoce cinco defectos; pisos, puertas y tarrajeo todavía requieren entrenamiento validado. La validación final corresponde a un profesional.</p></section></aside></div>';
  const form=$('quickForm');
  function updatePreview(kind){
    const input=$(kind+'File'),card=$(kind+'Card'),preview=$(kind+'Preview'),label=$(kind+'Name'),file=input.files[0];
@@ -471,7 +488,7 @@ function renderQuickResults(result){
  const issues=result.issues||[], materials=result.materials||[],images=result.image_summaries||[];
  const partial=result.status==='analisis_no_disponible';
  const rows=issues.map(item=>'<article class="result-issue"><span class="issue-bullet">!</span><div><div class="result-issue-heading"><strong>'+escapeHTML(item.category)+'</strong><span class="result-review-state">Por verificar</span></div>'+
- '<p>'+escapeHTML(item.description||'Observación visual preliminar')+'</p><small>Recomendación: '+escapeHTML(item.improvement||'Validar con especialista')+'</small></div></article>').join('');
+ '<p><b>Vista:</b> '+escapeHTML(item.shot||'Imagen')+' · '+escapeHTML(item.description||'Observación visual preliminar')+'</p><small>Recomendación: '+escapeHTML(item.improvement||'Validar con especialista')+'</small></div></article>').join('');
  const photos=images.map(item=>'<article class="result-photo"><img loading="lazy" src="'+escapeHTML(item.annotated_url||('/api/evidence/'+item.evidence_id))+'" alt="Análisis visual de '+escapeHTML(item.shot)+'"><div><strong>'+escapeHTML(item.shot)+'</strong><p>'+escapeHTML(item.summary||'Sin observaciones')+'</p></div></article>').join('');
  $('workspace').innerHTML='<div class="quick-result-title"><div><span class="quick-eyebrow">INFORME DE INSPECCIÓN · PRELIMINAR</span><h2>Tu análisis visual está listo</h2><p>Evaluación automática basada en '+images.length+' fotografía(s). No sustituye una inspección profesional.</p></div><span class="quick-report-tag">'+(partial?'Inferencia no disponible':'Pendiente de revisión')+'</span></div>'+
  '<div class="quick-stepper" aria-label="Etapas del análisis"><div class="step is-done"><b>✓</b><span>Imágenes recibidas</span></div><div class="step is-done"><b>✓</b><span>Proceso finalizado</span></div><div class="step is-current"><b>03</b><span>Consultar informe</span></div></div>'+
@@ -480,16 +497,44 @@ function renderQuickResults(result){
  '<button class="secondary" id="anotherQuick">＋ Nueva evaluación</button><button class="secondary" id="viewAdvanced">Ver expediente</button></div>'+
  '<div class="result-section-head"><h3>Fotografías analizadas</h3><span>'+images.length+' vista(s)</span></div><div class="result-photo-grid">'+photos+'</div>'+
  '<div class="result-two-col"><section class="result-panel"><div class="result-section-head"><h3>Posibles hallazgos</h3><span>'+issues.length+' detectado(s)</span></div>'+
- (rows||'<p class="result-empty">No se identificaron fisuras por encima del umbral del modelo. Esto no significa que no existan otros daños.</p>')+'</section>'+
+ (rows||'<p class="result-empty">No se identificaron defectos sobre los umbrales de los modelos ejecutados. Esto no demuestra que la vivienda esté en buen estado ni que no existan otros daños.</p>')+'</section>'+
  '<section class="result-panel"><div class="result-section-head"><h3>Materiales visibles</h3></div>'+
  (materials.length?materials.map(item=>'<span class="material-chip">'+escapeHTML(item.name)+'</span>').join(''):'<p class="result-empty">Materiales no verificados por el modelo actualmente disponible.</p>')+'</section></div>'+
+ '<section class="result-improvements"><div class="result-section-head"><h3>Plan de mejoras recomendado</h3><span>Requiere revisión profesional</span></div>'+
+ ((result.improvements||[]).length?
+    '<div class="improvements-grid">'+result.improvements.map((item,i)=>'<article class="improvement-item"><span class="improvement-index">'+String(i+1).padStart(2,'0')+'</span><div><strong>'+escapeHTML(item.label||item.category)+'</strong><p><b>'+escapeHTML(item.shot)+':</b> '+escapeHTML(item.action)+'</p><small>Antes de cotizar: '+escapeHTML(item.before_quoting)+'</small></div></article>').join('')+'</div>':
+    '<p class="result-empty">No hay mejoras justificadas automáticamente por los hallazgos. Se recomienda inspección de las zonas no fotografiadas.</p>')+'</section>'+
  '<div class="result-price-panel"><div class="result-section-head"><h3>Presupuesto y valor del inmueble</h3><span>Cálculo referencial</span></div>'+
- '<div class="result-price-grid"><div><small>Costo total de mejoras</small><strong>Por cuantificar</strong><p>Se necesitan medidas y costos locales documentados.</p></div><div><small>Valor comercial de la vivienda</small><strong>No determinado</strong><p>Una o dos fotos no permiten una tasación comercial precisa.</p></div></div>'+
+ '<div class="result-price-grid"><div><small>Cotización de mejoras</small><strong>Por cuantificar</strong><p>Para un total en soles faltan metrados y cotizaciones verificadas. La IA no puede medir superficies reales de una foto sin escala.</p></div><div><small>Tasación monetaria</small><strong id="referenceTotal">Requiere datos de referencia</strong><p>Fotos solas no determinan valor de mercado ni de garantía. Usa valores oficiales o comparables documentados.</p></div></div>'+
+ '<details class="valuation-expand"><summary>Calcular escenario monetario con datos documentados (opcional)</summary><p>Si conoces el área real y un costo por m² sustentado, el sistema calculará una referencia en S/. No es un avalúo pericial ni una cifra extraída de las fotografías.</p>'+
+ '<form id="scenarioForm"><div class="scenario-fields"><label>Área construida (m²)<input type="number" name="built_area_m2" min="1" max="100000" step=".01" required placeholder="Ej. 75"></label>'+
+ '<label>Valor unitario documentado (S/ por m²)<input type="number" name="construction_unit_pen_m2" min="1" max="100000" step=".01" required placeholder="Según fuente"></label>'+
+ '<label>Fuente del valor (institución, categoría y fecha)<input name="source" minlength="8" maxlength="500" required placeholder="Ej. Tabla oficial 2026, partida y categoría"></label></div>'+
+ '<button type="submit" class="primary">Calcular referencia documentada</button><div id="scenarioStatus" role="status"></div></form>'+
+ '<p>Consulta los <a href="https://www.gob.pe/institucion/vivienda/normas-legales/7568068-015-2025-vivienda-vmvu-dgprvu" target="_blank" rel="noopener">valores unitarios oficiales de edificación vigentes en 2026</a>. Debes seleccionar la región y las partidas correctas, sin suponerlas por una imagen.</p></details>'+
  (result.quote?.items?.length?'<div class="quote-unit-list">'+result.quote.items.map(x=>'<p>'+escapeHTML(x.work)+': S/ '+Number(x.unit_price_pen).toFixed(2)+' / '+escapeHTML(x.unit)+' · Cantidad pendiente</p>').join('')+'</div>':'')+'</div>'+
  (result.analysis_errors?.length?'<div class="quick-alert"><b>Advertencia:</b> '+result.analysis_errors.map(escapeHTML).join('; ')+'</div>':'')+
  '<details class="quick-limits"><summary>Alcance y limitaciones del informe</summary>'+(result.limitations||[]).map(x=>'<p>'+escapeHTML(x)+'</p>').join('')+'</details>';
  $('anotherQuick').onclick=renderQuickStart;
  $('viewAdvanced').onclick=async()=>{tab='general';await choose(result.case_id)};
+ const scenario=$('scenarioForm');
+ if(scenario)scenario.onsubmit=async ev=>{
+   ev.preventDefault();
+   const btn=scenario.querySelector('button[type=submit]');
+   btn.disabled=true;btn.textContent='Calculando...';
+   const values=Object.fromEntries(new FormData(scenario));
+   values.built_area_m2=Number(values.built_area_m2);
+   values.construction_unit_pen_m2=Number(values.construction_unit_pen_m2);
+   try{
+     const calc=await request('/api/cases/'+result.case_id+'/valuation-scenario',json('POST',values));
+     $('referenceTotal').textContent=money(calc.indicative_total_pen);
+     $('scenarioStatus').textContent='Escenario guardado e incluido en el informe PDF. Es una referencia aritmética, no un valor comercial certificado.';
+     btn.textContent='Actualizar referencia';
+   }catch(error){
+     $('scenarioStatus').textContent='No se pudo calcular: '+error.message;
+     btn.textContent='Calcular referencia documentada';
+   }finally{btn.disabled=false}
+ };
 }
 $('quickStart').onclick=renderQuickStart;
 
