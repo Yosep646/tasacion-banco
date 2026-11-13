@@ -415,7 +415,20 @@ def report_pdf(case_id: str, req: Request):
              "HALLAZGOS"]
     for f in case["findings"]:
         lines.append((f["category"] + " | " + f["severity"] + " | " + f["state"] + " | Ajuste S/ " + str(f["adjustment"]))[:105])
-    lines += ["", "Estimacion no constituye peritaje, credito aprobado ni diagnostico estructural."]
+    visual = case["visual_condition"]
+    lines += ["", "INSPECCION VISUAL (NO ESTRUCTURAL)",
+              "Cobertura fotografica: " + str(visual["coverage"]) + "%",
+              "Tomas revisadas: " + str(visual["reviewed"]) + "/" + str(len(visual["required_shots"])),
+              "Score visual referencial: " + (str(visual["condition_score"]) + "/100" if visual["condition_score"] is not None else "No disponible")]
+    for item in case["visual_assessments"]:
+        if item["state"] != "confirmado":
+            continue
+        data = json.loads(item["result_json"])
+        lines.append(("Observacion: " + data.get("summary", ""))[:105])
+        for issue in data.get("issues", []):
+            lines.append(("Mejora sugerida: " + issue.get("improvement", ""))[:105])
+    lines += ["", "Sin verificacion de estabilidad, danos ocultos ni habitabilidad.",
+              "No es aprobacion bancaria, score crediticio validado o peritaje."]
     y = 800
     for line in lines:
         if y < 55:
