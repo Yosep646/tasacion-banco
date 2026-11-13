@@ -14,6 +14,7 @@ from inspection_taxonomy import PRETRAINED_5, CLASSES
 
 ASSET_URL="https://github.com/Yosep646/tasacion-banco/releases/download/v0.2-defect5-onnx/"
 ASSET="vivienda-defectos-5.onnx"
+PINNED_SHA256="849148feb9a15a5b1d02ae5477befe3248f35f9305bd1e188a9035000d69397a"
 LABELS=["crack","mold","peeling_paint","stairstep_crack","water_seepage"]
 _sessions={}
 _lock=threading.Lock()
@@ -33,8 +34,12 @@ def download_model():
         digest=text.split()[0].lower()
         if len(digest)!=64 or any(ch not in "0123456789abcdef" for ch in digest):
             raise RuntimeError("Checksum inválido")
+        if digest!=PINNED_SHA256:
+            raise RuntimeError("La versión publicada difiere del modelo ONNX auditado")
         sha_path.write_text(digest)
     expected=sha_path.read_text().strip().split()[0].lower()
+    if expected!=PINNED_SHA256:
+        raise RuntimeError("Modelo local no coincide con el hash aprobado")
     if path.is_file() and hashlib.sha256(path.read_bytes()).hexdigest()==expected:
         return path
     part=path.with_suffix(".part")
