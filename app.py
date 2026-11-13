@@ -9,6 +9,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from contextlib import contextmanager
+from yolo_service import predict_findings, get_model_configuration
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
@@ -155,7 +156,7 @@ class ReviewIn(BaseModel):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "tasacion-visual", "model_enabled": bool(os.getenv("YOLO_WEIGHTS"))}
+    return {"status": "ok", "service": "tasacion-visual", "models": {"vivienda_fisuras": bool(os.getenv("YOLO_VIVIENDA_WEIGHTS")), "generico": bool(os.getenv("YOLO_WEIGHTS"))}}
 
 @app.get("/", response_class=HTMLResponse)
 def home():
@@ -296,32 +297,24 @@ def analyze(case_id: str, evidence_id: str, req: Request):
         row = con.execute("SELECT * FROM evidence WHERE id=? AND case_id=?", (evidence_id,case_id)).fetchone()
     if not row:
         raise HTTPException(404, "Evidencia no encontrada")
-    weights = os.getenv("YOLO_WEIGHTS")
-    if not weights:
-        raise HTTPException(503, "YOLO no configurado. Define YOLO_WEIGHTS con un modelo validado; no se simulan detecciones.")
-    weights_path = Path(weights).resolve()
-    if not weights_path.is_file():
-        raise HTTPException(503, "No se encuentran los pesos YOLO")
+    asset_type = require_case(case_id)["asset_type"]
+    model_config = get_model_configuration(asset_type)
+    if model_config is None:
+        raise HTTPException(503, "Modelo YOLO no configurado para este activo. Configura YOLO_VIVIENDA_WEIGHTS o YOLO_WEIGHTS.")
     try:
-        from ultralytics import YOLO
-    except ImportError as exc:
-        raise HTTPException(503, "Instala requirements-yolo.txt") from exc
-    model = YOLO(str(weights_path))
-    results = model.predict(str(UPLOADS / row["filename"]), conf=0.35, verbose=False)
+        proposed = predict_findings(str(UPLOADS / row["filename"]), model_config)
+    except (ImportError, FileNotFoundError, ValueError, RuntimeError) as exc:
+        raise HTTPException(503, "Inferencia YOLO no disponible: " + str(exc)) from exc
     new_count = 0
     with db() as con:
-        for result in results:
-            if result.boxes is None:
-                continue
-            for box in result.boxes:
-                cls = int(box.cls[0])
-                conf = float(box.conf[0])
-                label = str(result.names.get(cls, cls))
-                con.execute("INSERT INTO findings(id,case_id,evidence_id,category,severity,confidence,origin,state,description,adjustment,justification,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
-                            (str(uuid.uuid4()),case_id,evidence_id,label,"leve",conf,"yolo","pendiente","Detección automática: verificar con un revisor",0,"",now()))
-                new_count += 1
+        for detection in proposed:
+            con.execute("INSERT INTO findings(id,case_id,evidence_id,category,severity,confidence,origin,state,description,adjustment,justification,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                (str(uuid.uuid4()), case_id, evidence_id, detection["category"], "leve",
+                 detection["confidence"], detection["origin"], "pendiente",
+                 detection["description"], 0, "", now()))
+            new_count += 1
     log(actor, "analisis_yolo", case_id)
-    return {"detections": new_count, "warning": "Detecciones pendientes; no generan descuento automático. Un detector genérico no certifica daños."}
+    return {"detections": new_count, "profile": model_config["profile"], "warning": "Detecciones pendientes; no generan descuento automático. Las fisuras son observaciones visuales, no diagnósticos estructurales."}
 
 @app.get("/api/cases/{case_id}/report.json")
 def report_json(case_id: str, req: Request):
