@@ -1,0 +1,33 @@
+name: Export verified building-defect YOLO to ONNX
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/export_defect5.py'
+      - '.github/workflows/export-defect5.yml'
+permissions:
+  contents: write
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install CPU export dependencies
+        run: |
+          pip install --index-url https://download.pytorch.org/whl/cpu torch torchvision
+          pip install 'ultralytics==8.4.190' 'onnx>=1.16,<2'
+      - name: Export ONNX
+        run: python scripts/export_defect5.py
+      - name: Publish ONNX weights and checksum
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v0.2-defect5-onnx >/dev/null 2>&1; then
+            gh release upload v0.2-defect5-onnx weights/vivienda-defectos-5.onnx weights/vivienda-defectos-5.onnx.sha256 --clobber
+          else
+            gh release create v0.2-defect5-onnx weights/vivienda-defectos-5.onnx weights/vivienda-defectos-5.onnx.sha256 --title "YOLO26n: five observable defects (ONNX)" --notes "Experimental IAAC MaAI model AGPL-3.0; five classes: crack, mold, peeling_paint, stairstep_crack, water_seepage. Surface defect precision can be low. Do not use for structural or credit decisions without verification."
+          fi
