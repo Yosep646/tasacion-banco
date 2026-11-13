@@ -75,7 +75,7 @@ def init_db():
         """)
         for role in ("administrador", "revisor", "operador"):
             password = os.getenv("TASACION_" + role.upper() + "_PASSWORD")
-            if role == "administrador" and not password and ENV != "production":
+            if role == "administrador" and not password:
                 password = os.getenv("TASACION_ADMIN_PASSWORD")
             if password:
                 existing = con.execute("SELECT username FROM users WHERE username=?", (role,)).fetchone()
