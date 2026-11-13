@@ -1,5 +1,8 @@
 """Verify five-defect taxonomy, ONNX postprocessing and the real FastAPI contract."""
 import io
+import os
+os.environ.setdefault('TASACION_ADMIN_PASSWORD','strong-test-password')
+os.environ.setdefault('SESSION_SECRET','test-only-session-secret-of-at-least-32-chars')
 import numpy as np
 from PIL import Image
 from fastapi.testclient import TestClient
