@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: tasacion-banco
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /
+    envVars:
+      - key: PYTHONUNBUFFERED
+        value: '1'
+      - key: TASACION_REVISOR_PASSWORD
+        generateValue: true
+      - key: TASACION_OPERADOR_PASSWORD
+        generateValue: true
+      - key: TASACION_ADMINISTRADOR_PASSWORD
+        generateValue: true
