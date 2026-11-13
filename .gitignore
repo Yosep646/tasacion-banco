@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+.pytest_cache/
+.env
+.env.*
+data/
+*.sqlite3
+*.sqlite3-*
+runs/
+*.pyc
+.DS_Store
+auditoria-ejecucion.json
