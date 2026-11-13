@@ -138,6 +138,15 @@ def serialize_case(row):
 class VisualReview(BaseModel):
     state: str
 
+class ManualVisualObservation(BaseModel):
+    condition: str
+    category: str = Field(default="", max_length=120)
+    severity: str = "leve"
+    description: str = Field(default="", max_length=500)
+    improvement: str = Field(default="", max_length=300)
+    material: str = Field(default="", max_length=100)
+    notes: str = Field(default="", max_length=350)
+
 class CreditSimulation(BaseModel):
     documented_budget: float = Field(gt=0, le=1e10)
     budget_source: str = Field(min_length=5, max_length=500)
@@ -362,6 +371,40 @@ def vision_photo(case_id: str, evidence_id: str, req: Request):
     log(actor,"analisis_visual_pendiente",case_id)
     return {"id":rid,"state":"pendiente","result":result,
             "warning":"Observaciones automaticas no verificadas; un revisor debe confirmarlas. Ningun credito se aprueba automaticamente."}
+
+@app.post("/api/cases/{case_id}/manual-inspection/{evidence_id}")
+def manual_inspection(case_id: str, evidence_id: str, data: ManualVisualObservation, req: Request):
+    actor = auth(req, write=True, review=True)
+    require_case(case_id)
+    if data.condition not in ("aparentemente_bueno", "requiere_mejoras", "no_determinable"):
+        raise HTTPException(422, "Condicion visual invalida")
+    if data.category and data.severity not in ("leve", "moderada", "severa"):
+        raise HTTPException(422, "Severidad invalida")
+    with db() as con:
+        photo = con.execute("SELECT 1 FROM evidence WHERE id=? AND case_id=?",
+                            (evidence_id,case_id)).fetchone()
+    if not photo:
+        raise HTTPException(404, "Evidencia no encontrada")
+    result = {
+        "condition": data.condition,
+        "summary": data.notes or "Observación documentada por el revisor",
+        "materials": [{"name":data.material, "location":"Fotografía revisada"}] if data.material.strip() else [],
+        "issues": [{"category":data.category,"severity":data.severity,
+                    "description":data.description,"improvement":data.improvement}]
+                  if data.category.strip() else [],
+        "limitations": ["Evaluación manual de una fotografía. No determina seguridad estructural ni estado de elementos ocultos."],
+        "method": "manual_review",
+    }
+    ident = str(uuid.uuid4())
+    with db() as con:
+        con.execute("INSERT INTO visual_assessments(id,case_id,evidence_id,state,result_json,reviewer,reviewed_at,created_at) VALUES(?,?,?,?,?,?,?,?)",
+                    (ident,case_id,evidence_id,"confirmado",json.dumps(result,ensure_ascii=False),
+                     actor,now(),now()))
+        con.execute("UPDATE cases SET updated_at=? WHERE id=?", (now(),case_id))
+    log(actor,"observacion_visual_manual",case_id)
+    return {"id":ident,"state":"confirmado","result":result,
+            "warning":"Observación manual, no detección por IA. El score es provisional si faltan vistas."}
+
 
 @app.put("/api/visual-assessments/{assessment_id}/review")
 def review_visual(assessment_id: str, data: VisualReview, req: Request):
