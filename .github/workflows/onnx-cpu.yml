@@ -1,0 +1,40 @@
+name: ONNX CPU Real Inference
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'yolo_onnx.py'
+      - '.github/workflows/onnx-cpu.yml'
+permissions:
+  contents: read
+jobs:
+  onnx:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install 'onnxruntime>=1.20,<2' 'numpy>=1.26,<3' 'Pillow>=10,<13'
+      - name: Run CPU inference on photo and validate output
+        run: |
+          python - <<'PY'
+          import os,tempfile
+          from PIL import Image,ImageDraw
+          from yolo_onnx import predict_cracks, ensure_model
+          image=Image.new('RGB',(640,640),(210,211,208))
+          drawing=ImageDraw.Draw(image)
+          drawing.line([(150,10),(182,104),(300,235),(351,420),(375,610)],fill=(25,25,25),width=4)
+          with tempfile.TemporaryDirectory() as work:
+              path=os.path.join(work,'image.jpg')
+              image.save(path)
+              print('Model:', ensure_model())
+              results, annotated=predict_cracks(path)
+              assert isinstance(results,list)
+              assert annotated.size==(640,640)
+              for r in results:
+                  assert r['origin']=='yolo_onnx_fisuras'
+                  assert 0<=r['confidence']<=1
+              print('ONNX CPU real inference succeeded; candidate detections:',len(results))
+          PY
