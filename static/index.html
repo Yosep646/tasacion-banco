@@ -430,7 +430,7 @@ function renderQuickStart(){
  '<div class="one-feature"><span>▤</span><div><strong>Informe inmediato</strong><p>Resultados y recomendaciones en PDF.</p></div></div>'+
  '<div class="one-feature"><span>◇</span><div><strong>Estimación responsable</strong><p>Análisis referencial, sin sustituir una tasación profesional.</p></div></div></section>'+
  '<section class="one-info-card one-status-card"><h3><span class="one-info-icon">▥</span> Estado del análisis</h3>'+
- '<div class="one-status-chips"><span class="one-status-good">✓ YOLO configurado</span><span>▧ 1–2 fotos</span></div></section>'+
+ '<div class="one-status-chips"><span class="'+(yoloCpuEnabled?"one-status-good":"")+'">'+(yoloCpuEnabled?"✓ YOLO configurado":"YOLO no disponible")+'</span><span>▧ 1–2 fotos</span></div></section>'+
  '<section class="one-info-card one-model-card"><h3><span class="one-info-icon">▱</span> Alcance del modelo</h3><p>YOLO detecta posibles fisuras. Para reconocer otros materiales y desperfectos se requieren modelos adicionales. La validación final corresponde a un profesional.</p></section></aside></div>';
  const form=$('quickForm');
  function updatePreview(kind){
