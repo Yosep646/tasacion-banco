@@ -16,7 +16,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: pip install 'onnxruntime>=1.20,<2' 'numpy>=1.26,<3' 'Pillow>=10,<13'
+      - run: pip install -r requirements.txt httpx
       - name: Run CPU inference on photo and validate output
         run: |
           python - <<'PY'
@@ -39,3 +39,6 @@ jobs:
                   assert 0<=r['confidence']<=1
               print('ONNX CPU real inference succeeded; candidate detections:',len(results))
           PY
+
+      - name: Real YOLO through FastAPI, protected image and report
+        run: python tests/smoke_real_yolo_api.py
