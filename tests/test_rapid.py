@@ -97,3 +97,40 @@ def test_catalog_requires_documented_unit_price(monkeypatch):
     monkeypatch.setenv("TASACION_PRICE_CATALOG",
         '{"fisura_visible":{"unit_price_pen":120,"unit":"metro lineal"}}')
     assert build_quote(issues)["items"]==[]
+
+
+def test_economic_scenario_is_documented_and_not_inferred(monkeypatch):
+    from valuation_reference import estimate_property_scenario
+    result=estimate_property_scenario(
+        80,1500,"Comparables documentados, fecha 2026-11-13",
+        land_area_m2=0,land_pen_m2=0,
+    )
+    assert result["indicative_total_pen"]==120000
+    assert result["status"]=="escenario_documentado_no_pericial"
+    assert "no constituye" in result["disclaimer"].lower()
+    import pytest
+    with pytest.raises(ValueError):
+        estimate_property_scenario(80,1500,"sin fuente")
+    with pytest.raises(ValueError):
+        estimate_property_scenario(80,1500,"Comparables documentados",land_area_m2=30)
+
+
+def test_financial_scenario_endpoint_updates_pdf(monkeypatch):
+    monkeypatch.setenv("YOLO_CPU_ENABLED","1")
+    monkeypatch.delenv("OPENAI_API_KEY",raising=False)
+    monkeypatch.setattr(app,"predict_cracks",stub_yolo)
+    client=client_login()
+    created=client.post("/api/quick-inspection",
+       files={"exterior":("fachada.jpg",photo(),"image/jpeg")})
+    assert created.status_code==201
+    cid=created.json()["case_id"]
+    response=client.post("/api/cases/"+cid+"/valuation-scenario",json={
+        "built_area_m2":80,"construction_unit_pen_m2":1500,
+        "source":"Ejemplo documentado de costo por m2, 2026",
+    })
+    assert response.status_code==200,response.text
+    assert response.json()["indicative_total_pen"]==120000
+    report=client.get("/api/cases/"+cid+"/quick-report").json()
+    assert report["documented_valuation_scenario"]["indicative_total_pen"]==120000
+    pdf=client.get("/api/cases/"+cid+"/quick-report.pdf")
+    assert pdf.status_code==200 and pdf.content.startswith(b"%PDF")
