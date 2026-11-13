@@ -1,98 +1,73 @@
-# Tasación Visual — aplicación web referencial
+# Tasación Visual Rápida — Asistente para microcrédito hipotecario o prendario
 
-Sistema web en español para registrar expedientes de bienes, capturar fotografías, revisar hallazgos y documentar una **tasación referencial**. Implementado en Python (FastAPI), SQLite y HTML/JavaScript. No sustituye un peritaje profesional ni determina aprobaciones de crédito.
+> **Objetivo académico:** ayudar a documentar el estado visible de viviendas, mototaxis, maquinaria, vehículos y terrenos mediante fotografías guiadas y facilitar una evaluación referencial de mejoras. No emite certificaciones estructurales ni aprueba créditos.
 
-## Estado real de implementación
+## Flujo del reto
 
-- ✅ Inicio de sesión por roles: administrador, revisor, operador.
-- ✅ Expedientes: vivienda, mototaxi, vehículo, maquinaria y terreno.
-- ✅ Evidencias fotográficas JPG, PNG y WebP, con validación, redimensionado y almacenamiento privado.
-- ✅ Hallazgos manuales; revisión humana, confirmación y descarte; ajustes documentados.
-- ✅ Valor base, fuente y cálculo referencial (valor base menos ajustes confirmados).
-- ✅ Exportación PDF y JSON, auditoría por expediente, pruebas automatizadas en GitHub Actions.
-- ✅ Endpoint de salud y configuración para Render.
-- ✅ Adaptador de segmentación de fisuras YOLOv8n integrado y probado en GitHub Actions con pesos reales, descarga con SHA-256 e inferencia sobre imagen sintética. **El peso no se almacena en GitHub**; se descarga de su fuente pública verificando la suma SHA-256. Para utilizarlo localmente o en Render se debe instalar la dependencia opcional, descargar el modelo y establecer YOLO_VIVIENDA_WEIGHTS. Ninguna detección genera descuentos sin revisión.
-- ⚠️ Esta reconstrucción **no incluye** entrenamiento validado, segmentación con máscaras, inspección de video, comparables automáticos, cálculo bancario de crédito ni validación en campo. El README anterior describía capacidades de una entrega ZIP que no está presente en GitHub.
+1. Crear expediente y elegir el activo.
+2. **Inspección visual IA**: cargar una secuencia guiada de cuatro fotos. Para vivienda: **Fachada, Paredes, Techo, Interior**. Puede fotografiarse desde el celular.
+3. Análisis multimodal opcional (si se configura `OPENAI_API_KEY`): devuelve **materiales visibles, problemas observables, condición preliminar, mejoras sugeridas y limitaciones**, mediante JSON validado.
+4. Las observaciones quedan **pendientes** hasta su revisión por un administrador o revisor. El modelo no verifica estructura, humedad oculta, cimentación ni instalaciones internas.
+5. Solo con las cuatro vistas completas, revisadas y determinables se muestra un **score visual ilustrativo**: 100 menos 5 puntos por observación leve, 12 por moderada, 25 por severa. **No es un score crediticio entrenado ni calibrado**.
+6. El revisor documenta valor base y fuente de mercado, y presupuesto de mejoras y su fuente. Puede ejecutar una **simulación académica de microcrédito**: menor de 70% del presupuesto o 30% del valor base. Ninguna política bancaria real ha sido verificada; los límites son parámetros ilustrativos. No hay desembolso, evaluación de solvencia ni decisión de riesgo.
+7. Exporta PDF/JSON con hallazgos revisados y sus limitaciones.
+
+## Estado y límites
+
+- ✅ Backend FastAPI y SQLite, autenticación por roles, evidencia fotográfica, reportes PDF/JSON.
+- ✅ Flujo de cuatro tomas y análisis multimodal implementado con API del proveedor (opt-in).
+- ✅ Resultados de visión marcados pendientes y revisión humana, score transparente condicionado a cobertura.
+- ✅ Simulación referencial con presupuesto/valor base y prueba de extremo a extremo usando **modelo simulado solamente en tests**.
+- ✅ YOLOv8 especializado de fisuras probado con pesos reales en CI usando imagen sintética.
+- ⚠️ **La cuenta de Render Free NO tiene configurado un modelo multimodal por defecto.** Sin `OPENAI_API_KEY`, los botones de análisis explican el motivo y **no fingen detectar materiales o daños**.
+- ⚠️ La detección multimodal real no se ha verificado en vivo en Render porque no hay clave accesible en este entorno. La implementación de la API está probada por sustitución controlada durante las pruebas automatizadas, no por una llamada real al servicio.
+- ⚠️ Se implementó la secuencia de fotografías guiadas (no videos). Validación local sobre viviendas peruanas, métricas por categoría, evaluación humana y criterios bancarios reales siguen pendientes.
+- ⚠️ Render Free no tiene almacenamiento persistente para la base SQLite ni las fotografías. Para producción, usa almacenamiento persistente externo y una base de datos gestionada con backups, consentimiento y política de retención.
+
+## Activar visión multimodal
+
+En la configuración Environment del servicio Render agrega, sin publicarlas en GitHub:
+
+- `OPENAI_API_KEY`: clave API del proveedor con acceso a modelos de visión (puede generar cargos de uso).
+- `VISION_MODEL`: opcional, por defecto `gpt-4.1-mini`, sujeto a disponibilidad y facturación.
+
+En el panel **Inspección visual IA**, el usuario verá si está configurado el análisis automático. Antes de enviarlas al proveedor externo, el responsable debe tener autorización para procesar esas imágenes y evitar información personal innecesaria. La entrada es JPEG redimensionada y protegida por sesión; los resultados requieren confirmación.
+
+No hace falta instalar PyTorch en Render Free para este método: la inferencia se ejecuta en el proveedor externo. Para inferencia YOLO local se mantienen `requirements-yolo.txt`, `YOLO_VIVIENDA_WEIGHTS` y las herramientas de descarga/verificación SHA-256.
 
 ## Ejecutar localmente
 
-Requiere Python 3.12 (o compatible).
+Python 3.12 es el entorno recomendado.
 
 ```bash
 python -m venv .venv
+# Linux/Mac: source .venv/bin/activate
 # Windows: .venv\\Scripts\\activate
-# macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-Configura una contraseña de administrador y una clave de sesión:
+Define `TASACION_ADMIN_PASSWORD` (solo en variables de entorno; no en GitHub), `SESSION_SECRET` aleatorio de 32+ caracteres y opcionalmente `OPENAI_API_KEY`. Arranca:
 
 ```bash
-# macOS / Linux
-export TASACION_ADMIN_PASSWORD='cambia-esta-clave-por-una-segura'
-export SESSION_SECRET='clave-aleatoria-larga-de-al-menos-32-caracteres'
 uvicorn app:app --reload
 ```
 
-En PowerShell:
-
-```powershell
-$env:TASACION_ADMIN_PASSWORD = 'cambia-esta-clave-por-una-segura'
-$env:SESSION_SECRET = 'clave-aleatoria-larga-de-al-menos-32-caracteres'
-uvicorn app:app --reload
-```
-
-Abre http://127.0.0.1:8000, usuario **administrador** y la contraseña definida. Las cuentas opcionales `revisor` y `operador` se habilitan al iniciar con `TASACION_REVISOR_PASSWORD` y `TASACION_OPERADOR_PASSWORD`. Las contraseñas se configuran **solo al crear cada cuenta en la base**; cambiar la variable después no actualiza automáticamente una cuenta existente.
-
-SQLite y fotografías se guardan en `data/` de forma predeterminada. Configura `TASACION_DATA` y, si procede, `TASACION_DB` para otra ruta. **Evita publicar expedientes reales con datos privados sin revisar el tratamiento de datos, permisos y copias de seguridad.**
-
-## YOLO opcional
-
-```bash
-pip install -r requirements-yolo.txt
-export YOLO_WEIGHTS=/ruta/absoluta/modelo.pt
-```
-
-Reinicia la app. Usa un modelo previamente entrenado y verificado; los pesos no se descargan automáticamente. Si no se configura, el botón de análisis informa que el servicio no está disponible; no simula detecciones. Los modelos genéricos COCO detectan objetos, **no certifican grietas ni daños**.
-
-## Despliegue en Render
-
-Se incluye `render.yaml` con un servicio Python, disco persistente en `/var/data`, variables `APP_ENV=production`, `TASACION_DATA=/var/data`, `SESSION_SECRET` generado y `TASACION_ADMIN_PASSWORD` manual. **El plan starter y el disco persistente pueden generar cargos.** No despliegues en un plan sin almacenamiento persistente si necesitas conservar las imágenes y los casos.
-
-1. Conecta este repositorio en Render y crea el servicio desde Blueprint (`render.yaml`).
-2. Define `TASACION_ADMIN_PASSWORD` como secreto antes del primer arranque; no lo pongas en GitHub.
-3. Revisa la factura y la configuración del disco, ejecuta el despliegue y verifica `/health` y el flujo de sesión/expediente.
-4. Para imágenes y modelo YOLO en producción, instala dependencias opcionales y proporciona un peso validado sin exponer secretos.
-
-**Estado:** configuración preparada, pero este README no afirma que exista un servicio público operativo; debe verificarse en el dashboard de Render.
+La aplicación abre en `http://127.0.0.1:8000`. Usuario `administrador`; contraseña: la configurada en la variable `TASACION_ADMIN_PASSWORD`. `APP_ENV=production` exige `TASACION_ADMIN_PASSWORD` y `SESSION_SECRET`. Si el usuario ya existe en SQLite, cambiar la variable no cambia su hash.
 
 ## Pruebas
 
 ```bash
 pip install pytest httpx
 python -m pytest -q
+python tests/check_frontend.py
 ```
 
-Las pruebas cubren autenticación, creación de expedientes, revisión, valoraciones, exportación PDF/JSON, fotografía, estado sin YOLO y bootstrap del administrador en producción.
+Pruebas de carga de imágenes, roles, valoraciones, PDF, API visual simulada, revisión humana, cobertura y simulación. El workflow especializado también descarga el modelo YOLO con hash conocido y ejecuta inferencia en una imagen sintética.
 
-## Licencia y modelos
+## Render
 
-No se incluyen pesos de terceros en este repositorio. El modelo de OpenSistemas tiene licencia AGPL-3.0 y se distribuye como checkpoint .pt (pickle), cuyo formato puede ejecutar código durante la carga. El checksum verifica la integridad de una versión concreta, pero no certifica que el contenido sea seguro. Revisa licencias de modelos y datasets antes de distribuir o usar comercialmente.
+El servicio gratuito existente usa `requirements.txt` y se despliega al actualizar la rama `main` de `Yosep646/tasacion-banco`. La URL es `https://tasacion-banco.onrender.com`. El backend puede publicarse sin modelos pesados, pero el análisis multimodal requiere clave API y recursos externos. El archivo `render-yolo.yaml` es una propuesta separada, de pago, que **no** debe confundirse con el servicio gratuito actualmente utilizado.
 
-## Inferencia especializada verificada en CI
+## Principios de seguridad
 
-La ejecución [YOLO real inference smoke test](https://github.com/Yosep646/tasacion-banco/actions/workflows/yolo-smoke.yml) instala dependencias CPU, descarga el peso YOLOv8n-seg de OpenSistemas en `weights/vivienda-fisuras.pt`, comprueba SHA-256 `cce8b30758621622a03119677709d172f2ec1a2f0452279bda37732fcffb00af` y ejecuta inferencia sobre una imagen sintética. Primera ejecución corregida: 1 detección; workflow exitoso. **Esto es una prueba funcional, no una evaluación clínica, estructural ni de precisión del detector**. La evaluación de precisión requiere fotos representativas de viviendas reales con etiquetas de referencia.
-
-Configuración local:
-
-```bash
-pip install --index-url https://download.pytorch.org/whl/cpu torch torchvision
-pip install -r requirements-yolo.txt
-python scripts/download_fisuras.py
-# macOS/Linux
-export YOLO_VIVIENDA_WEIGHTS=weights/vivienda-fisuras.pt
-# PowerShell: $env:YOLO_VIVIENDA_WEIGHTS = 'weights/vivienda-fisuras.pt'
-uvicorn app:app --reload
-```
-
-`render-yolo.yaml` contiene el despliegue con modelo especializado, plan Standard (2 GB RAM) y disco persistente. **Implica cargos recurrentes**. Debe aprobarse en el workspace correcto, configurando una contraseña administrativa y verificando el acceso público. `render.yaml` conserva el despliegue sin instalar el modelo especializado. Ningún archivo YAML, por sí solo, significa que el servidor esté desplegado.
+Todos los resultados de IA son observaciones preliminares. No asumir que ausencia de fisuras visibles indica seguridad. Para tomar decisiones crediticias hacen falta peritaje cuando corresponda, evidencias verificadas, identificación y valoración de garantías, evaluación de capacidad de pago, consentimiento y revisión de un responsable humano.
