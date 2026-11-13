@@ -12,6 +12,8 @@ from contextlib import contextmanager
 from yolo_service import predict_findings, get_model_configuration
 from vision_service import analyze_photo, evaluate_condition, guided_shots, simulate_credit
 from yolo_onnx import predict_cracks
+from rapid_service import summarize
+from starlette.concurrency import run_in_threadpool
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
@@ -78,7 +80,7 @@ def init_db():
           state TEXT NOT NULL DEFAULT 'pendiente', result_json TEXT NOT NULL,
           reviewer TEXT, reviewed_at TEXT, created_at TEXT NOT NULL);
         CREATE INDEX IF NOT EXISTS visual_assessments_case_idx ON visual_assessments(case_id,evidence_id,created_at);
-        CREATE TABLE IF NOT EXISTS audit (
+        CREATE TABLE IF NOT EXISTS rapid_reports (\n          case_id TEXT PRIMARY KEY REFERENCES cases(id) ON DELETE CASCADE,\n          result_json TEXT NOT NULL, created_at TEXT NOT NULL);\n        CREATE TABLE IF NOT EXISTS audit (
           id INTEGER PRIMARY KEY AUTOINCREMENT, actor TEXT NOT NULL, action TEXT NOT NULL,
           case_id TEXT, at TEXT NOT NULL);
         """)
@@ -341,6 +343,196 @@ def analyze(case_id: str, evidence_id: str, req: Request):
             new_count += 1
     log(actor, "analisis_yolo", case_id)
     return {"detections": new_count, "profile": model_config["profile"], "warning": "Detecciones pendientes; no generan descuento automático. Las fisuras son observaciones visuales, no diagnósticos estructurales."}
+
+
+async def _save_quick_photo(case_id: str, file: UploadFile, shot: str, actor: str):
+    if file.content_type not in ("image/jpeg", "image/png", "image/webp"):
+        raise HTTPException(415, "Se requiere una fotografía JPG, PNG o WebP")
+    content = await file.read(8 * 1024 * 1024 + 1)
+    if len(content) > 8 * 1024 * 1024:
+        raise HTTPException(413, "Cada imagen debe pesar menos de 8 MB")
+    try:
+        with Image.open(io.BytesIO(content)) as image:
+            image.verify()
+        with Image.open(io.BytesIO(content)) as image:
+            if image.width * image.height > 32_000_000:
+                raise ValueError("Imagen demasiado grande")
+            processed = image.convert("RGB")
+            processed.thumbnail((1600, 1600))
+    except (UnidentifiedImageError, OSError, ValueError) as exc:
+        raise HTTPException(422, "Imagen inválida") from exc
+    eid = str(uuid.uuid4())
+    filename = eid + ".jpg"
+    processed.save(UPLOADS / filename, format="JPEG", quality=85)
+    with db() as con:
+        con.execute("INSERT INTO evidence VALUES(?,?,?,?,?,?,?)",
+                    (eid,case_id,filename,(file.filename or "imagen")[:200],
+                     shot,"image/jpeg",now()))
+    log(actor,"subir_foto_rapida",case_id)
+    return {"id":eid, "shot":shot,"filename":filename}
+
+
+@app.post("/api/quick-inspection", status_code=201)
+async def quick_inspection(req: Request, exterior: UploadFile = File(...),
+                           interior: UploadFile | None = File(default=None)):
+    actor = auth(req, write=True)
+    can_yolo = os.getenv("YOLO_CPU_ENABLED") == "1"
+    can_vision = bool(os.getenv("OPENAI_API_KEY"))
+    if not can_yolo and not can_vision:
+        raise HTTPException(503, "No hay un modelo de visión configurado para analizar fotografías")
+    case_id = str(uuid.uuid4())
+    title = "Inspección rápida " + datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    with db() as con:
+        con.execute("INSERT INTO cases(id,asset_type,title,created_at,updated_at) VALUES(?,?,?,?,?)",
+                    (case_id,"vivienda",title,now(),now()))
+    photos = []
+    try:
+        photos.append(await _save_quick_photo(case_id,exterior,"Exterior",actor))
+        if interior is not None and interior.filename:
+            photos.append(await _save_quick_photo(case_id,interior,"Interior",actor))
+    except HTTPException:
+        with db() as con:
+            con.execute("DELETE FROM cases WHERE id=?",(case_id,))
+        for p in photos:
+            (UPLOADS / p["filename"]).unlink(missing_ok=True)
+        raise
+    analyses = []
+    for photo in photos:
+        result = None
+        error = None
+        annotated = None
+        image_path = UPLOADS / photo["filename"]
+        # YOLO detects possible cracks; multimodal model can add further visual observations.
+        if can_vision:
+            try:
+                result = await run_in_threadpool(analyze_photo,str(image_path),photo["shot"],"vivienda")
+                result["method"] = "multimodal_visual"
+            except (RuntimeError, ValueError, OSError, json.JSONDecodeError) as exc:
+                error = "El proveedor multimodal no respondió correctamente"
+        if can_yolo:
+            try:
+                cracks, annotated = await run_in_threadpool(predict_cracks,str(image_path))
+                if annotated is not None:
+                    annotated.save(UPLOADS / (photo["id"] + "-yolo.jpg"),format="JPEG",quality=85)
+                if result is None:
+                    result = {
+                        "condition":"requiere_mejoras" if cracks else "no_determinable",
+                        "summary":("YOLO detectó "+str(len(cracks))+" posible(s) fisura(s)." if cracks
+                                   else "No se detectaron fisuras por encima del umbral; esto no prueba que la vivienda esté en buen estado."),
+                        "materials":[],
+                        "issues":[],
+                        "limitations":["YOLO solo examina posibles fisuras, no materiales ni todas las patologías."],
+                        "method":"yolo_cpu_onnx",
+                    }
+                for crack in cracks:
+                    result["issues"].append({
+                        "category":crack["category"],
+                        "severity":"no_determinada",
+                        "description":crack["description"],
+                        "improvement":crack["improvement"],
+                        "confidence":crack["confidence"],
+                        "box":crack["box"],
+                    })
+                if cracks:
+                    result["condition"]="requiere_mejoras"
+                result["yolo_detections"]=len(cracks)
+                result["annotated_url"]="/api/evidence/"+photo["id"]+"/yolo-overlay"
+                if result["method"]=="multimodal_visual":
+                    result["method"]="multimodal_visual+yolo_cpu_onnx"
+            except (OSError,ValueError,RuntimeError,ImportError) as exc:
+                error = (error+"; " if error else "")+"No fue posible ejecutar YOLO"
+        if result is None:
+            result={"condition":"no_determinable","summary":"No se pudo completar la inferencia visual.",
+                    "materials":[],"issues":[],"limitations":["No hay resultados de IA verificados."],
+                    "method":"inferencia_fallida"}
+        aid = str(uuid.uuid4())
+        with db() as con:
+            con.execute("INSERT INTO visual_assessments(id,case_id,evidence_id,state,result_json,created_at) VALUES(?,?,?,?,?,?)",
+                        (aid,case_id,photo["id"],"pendiente",
+                         json.dumps(result,ensure_ascii=False),now()))
+        analyses.append({"evidence_id":photo["id"],"shot":photo["shot"],
+                         "result":result,"error":error})
+    summary=summarize(analyses,len(photos),can_vision)
+    summary["case_id"]=case_id
+    summary["generated_at"]=now()
+    if all(a["result"]["method"]=="inferencia_fallida" for a in analyses):
+        summary["status"]="analisis_no_disponible"
+    with db() as con:
+        con.execute("INSERT INTO rapid_reports VALUES(?,?,?)",
+                    (case_id,json.dumps(summary,ensure_ascii=False),now()))
+    log(actor,"generar_informe_rapido",case_id)
+    return summary
+
+
+def _get_rapid_report(case_id: str, req: Request):
+    auth(req)
+    require_case(case_id)
+    with db() as con:
+        report = con.execute("SELECT result_json FROM rapid_reports WHERE case_id=?",
+                             (case_id,)).fetchone()
+    if not report:
+        raise HTTPException(404, "Este expediente no tiene informe rápido")
+    return json.loads(report["result_json"])
+
+
+@app.get("/api/cases/{case_id}/quick-report")
+def quick_report(case_id: str, req: Request):
+    return _get_rapid_report(case_id,req)
+
+
+@app.get("/api/cases/{case_id}/quick-report.pdf")
+def quick_report_pdf(case_id: str, req: Request):
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.utils import simpleSplit
+    from reportlab.pdfgen.canvas import Canvas
+    report = _get_rapid_report(case_id,req)
+    stream = io.BytesIO()
+    pdf = Canvas(stream,pagesize=A4)
+    pdf.setTitle("Informe inmediato de inspección visual preliminar")
+    y = 794
+
+    def draw(value, emphasize=False):
+        nonlocal y
+        pdf.setFont("Helvetica-Bold" if emphasize else "Helvetica", 11 if emphasize else 9)
+        safe_text = str(value).encode("latin-1","replace").decode("latin-1")
+        for line in simpleSplit(safe_text,"Helvetica",9,520):
+            if y < 55:
+                pdf.showPage()
+                y=790
+            pdf.drawString(38,y,line)
+            y -= 15
+    draw("INFORME VISUAL PRELIMINAR - NO ES TASACIÓN BANCARIA",True)
+    draw("Expediente: "+case_id)
+    draw("Fecha UTC: "+report["generated_at"])
+    draw("Fotografías analizadas: "+str(report["images_analyzed"]))
+    draw("Estado: "+report["condition"],True)
+    draw("Métodos: "+", ".join(report["models"]))
+    for item in report["image_summaries"]:
+        draw(item["shot"]+": "+str(item["summary"]))
+    draw("MATERIALES OBSERVADOS",True)
+    if not report["materials"]:
+        draw("No identificables con los modelos disponibles")
+    for material in report["materials"]:
+        draw(material["name"]+" - "+material["location"])
+    draw("POSIBLES HALLAZGOS",True)
+    for item in report["issues"]:
+        draw(item["category"]+": "+item["description"])
+        draw("Mejora posible: "+item["improvement"])
+    if not report["issues"]:
+        draw("No se identificaron hallazgos; esto no certifica buen estado.")
+    draw("COTIZACIÓN DE MEJORAS",True)
+    draw(report["quote"]["explanation"])
+    for item in report["quote"]["items"]:
+        draw(item["work"]+": S/ "+str(item["unit_price_pen"])+"/"+item["unit"]+"; falta metrado.")
+    draw("Total: pendiente de cuantificación. Valor comercial: no estimado.")
+    draw(report["property_market_value_reason"])
+    draw("LIMITACIONES Y VALIDACIÓN",True)
+    for line in report["limitations"]:
+        draw(line)
+    draw("Informe automático orientativo. Requiere evaluación profesional.",True)
+    pdf.save()
+    return Response(stream.getvalue(),media_type="application/pdf",
+        headers={"Content-Disposition":'attachment; filename="informe-visual-rapido.pdf"'})
 
 
 @app.get("/api/inspection-guide/{asset_type}")
