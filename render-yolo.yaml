@@ -1,0 +1,25 @@
+# Paid deployment with specialized YOLO inference.
+# Render Standard 1c-2g (2GB) + persistent disk; verify costs before approval.
+services:
+  - type: web
+    name: tasacion-visual-yolo
+    runtime: python
+    plan: standard
+    buildCommand: pip install --index-url https://download.pytorch.org/whl/cpu torch torchvision && pip install -r requirements-yolo.txt && python scripts/download_fisuras.py
+    startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: TASACION_ADMIN_PASSWORD
+        sync: false
+      - key: YOLO_VIVIENDA_WEIGHTS
+        value: weights/vivienda-fisuras.pt
+      - key: TASACION_DATA
+        value: /var/data
+    disk:
+      name: tasacion-data
+      mountPath: /var/data
+      sizeGB: 1
