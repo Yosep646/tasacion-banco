@@ -85,6 +85,19 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .credit-panel .form-grid{margin:15px 0}
 #creditResult{font-weight:750;line-height:1.6;color:#1749a8}
 @media(max-width:850px){.inspection-grid{grid-template-columns:1fr}}
+
+.single-upload{background:#f7faff;border:1px solid #dce7f8;border-radius:16px;padding:22px;margin:22px 0}
+.single-upload h3{margin-top:0;font-size:17px}
+.single-upload .form-grid{align-items:end}
+.single-upload input[type=file]{min-height:47px;padding:11px;background:white;border:1px solid #ced9ea;border-radius:10px;max-width:100%}
+.suggested-views{margin-top:17px;border-top:1px solid #e2eaf7;padding-top:13px}
+.suggested-views>div{margin-top:6px}
+.manual-observation{background:#fff;border:1px solid #d8e3f5;border-radius:12px;padding:11px;margin-top:13px}
+.manual-observation summary{cursor:pointer;color:#1c4fb5;font-size:13px;font-weight:750}
+.manual-observation-form{display:grid;gap:12px;padding-top:15px}
+.manual-observation-form textarea{min-height:75px}
+.inspection-photo{height:250px}
+@media(max-width:600px){.single-upload{padding:15px}.inspection-photo{height:200px}}
 </style></head><body>
 <div id="loginPanel" class="card auth hide"><div class="brand"><span class="logo">TV</span><div><h1 class="heading">Tasación Visual</h1><p class="muted">Ingreso seguro al sistema</p></div></div>
 <form id="loginForm"><div class="field"><label>Usuario</label><input id="user" autocomplete="username" required placeholder="administrador"></div><div class="field"><label>Contraseña</label><input id="pass" type="password" autocomplete="current-password" required></div><button class="primary" style="width:100%">Ingresar</button></form><p id="loginError" class="danger"></p></div>
@@ -111,59 +124,77 @@ if(tab==='evidencias'){h.innerHTML='<h3>Capturar evidencia</h3><form id="uploadF
 
 if(tab==='inspeccion'){
  const ins=c.visual_condition||{},shots=ins.required_shots||['Fachada','Paredes','Techo','Interior'];
- const items=c.visual_assessments||[], evidence=c.evidence||[];
- const status=visionEnabled?'<span class="pill">Visión multimodal habilitada</span>':'<span class="pill">Análisis automático no configurado</span>';
- const photos=shots.map((shot,i)=>{
-   const image=evidence.find(e=>e.shot.toLocaleLowerCase()===shot.toLocaleLowerCase());
-   const assessment=image?items.find(a=>a.evidence_id===image.id):null;
+ const items=c.visual_assessments||[],evidence=c.evidence||[];
+ const status=visionEnabled?'<span class="pill">IA multimodal configurada</span>':'<span class="pill">Revisión visual manual disponible</span>';
+ const conditionLabels={aparentemente_bueno:'Aparentemente conservado',requiere_mejoras:'Mejoras visibles',no_determinable:'No determinable'};
+ const photos=evidence.map((image,i)=>{
+   const assessment=items.find(a=>a.evidence_id===image.id);
    let observations='';
    if(assessment){
      let v={};try{v=JSON.parse(assessment.result_json)}catch(err){}
-     observations='<div class="visual-result"><div class="flex"><strong>'+escapeHTML(v.condition||'No determinable')+'</strong><span class="pill">'+escapeHTML(assessment.state)+'</span></div><p>'+escapeHTML(v.summary||'Sin conclusión')+'</p>'+
-     (v.materials||[]).map(x=>'<span class="material-chip">'+escapeHTML(x.name)+'</span>').join('')+
-     (v.issues||[]).map(x=>'<p class="finding-line"><b>'+escapeHTML(x.category)+'</b> · '+escapeHTML(x.severity)+' — '+escapeHTML(x.description)+'<br><small>Mejora: '+escapeHTML(x.improvement)+'</small></p>').join('')+
-     (v.limitations||[]).map(x=>'<p class="muted">Límite: '+escapeHTML(x)+'</p>').join('')+
-     ((userRole!=='operador'&&assessment.state==='pendiente')?'<div class="flex"><button class="secondary" data-review-vision="'+assessment.id+'" data-decision="confirmado">Confirmar observaciones</button><button class="secondary" data-review-vision="'+assessment.id+'" data-decision="descartado">Descartar</button></div>':'')+'</div>';
+     observations='<div class="visual-result"><div class="flex"><strong>'+escapeHTML(conditionLabels[v.condition]||'Sin conclusión')+'</strong><span class="pill">'+escapeHTML(assessment.state)+'</span></div>'+
+       '<small class="muted">'+(v.method==='manual_review'?'Observación del revisor':'Propuesta de IA pendiente de revisión')+'</small>'+
+       '<p>'+escapeHTML(v.summary||'Sin resumen')+'</p>'+
+       (v.materials||[]).map(x=>'<span class="material-chip">'+escapeHTML(x.name)+'</span>').join('')+
+       (v.issues||[]).map(x=>'<p class="finding-line"><b>'+escapeHTML(x.category)+'</b> · '+escapeHTML(x.severity)+' — '+escapeHTML(x.description)+'<br><small>Mejora: '+escapeHTML(x.improvement)+'</small></p>').join('')+
+       (v.limitations||[]).map(x=>'<p class="muted">Límite: '+escapeHTML(x)+'</p>').join('')+
+       ((userRole!=='operador'&&assessment.state==='pendiente')?'<div class="flex"><button class="secondary" data-review-vision="'+assessment.id+'" data-decision="confirmado">Confirmar observaciones</button><button class="secondary" data-review-vision="'+assessment.id+'" data-decision="descartado">Descartar</button></div>':'')+'</div>';
    }
-   return '<article class="inspection-card"><div class="inspection-number">'+String(i+1).padStart(2,'0')+'</div><div class="inspection-body"><div class="flex" style="justify-content:space-between"><h3>'+escapeHTML(shot)+'</h3><span class="pill">'+(image?'Foto adjuntada':'Pendiente de foto')+'</span></div>'+
-   (image?'<img class="inspection-photo" src="/api/evidence/'+image.id+'" alt="Fotografía '+escapeHTML(shot)+'">':'<div class="inspection-placeholder">📷<br><span>Fotografía '+escapeHTML(shot)+'</span></div>')+
-   '<form class="inspection-upload" data-shot="'+escapeHTML(shot)+'"><label>Tomar o adjuntar fotografía ('+escapeHTML(shot)+')</label><input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" name="file" required><button class="secondary" type="submit">Guardar fotografía</button></form>'+
-   (image?'<button class="primary" data-vision="'+image.id+'" '+(visionEnabled?'':'disabled')+'>Analizar esta foto con IA</button>':'')+
-   observations+'</div></article>';
+   const manualForm=userRole==='operador'?'':'<details class="manual-observation"><summary>Registrar inspección visual manual</summary>'+
+   '<form class="manual-observation-form" data-evidence="'+image.id+'"><div class="field"><label>Condición visual observada</label><select name="condition"><option value="no_determinable">No determinable</option><option value="aparentemente_bueno">Aparentemente conservada</option><option value="requiere_mejoras">Requiere mejoras visibles</option></select></div>'+
+   '<div class="field"><label>Material observado (opcional)</label><input name="material" maxlength="100" placeholder="Ej. ladrillo, calamina, concreto"></div>'+
+   '<div class="field"><label>Problema visible (opcional)</label><select name="category"><option value="">Ninguno identificado en esta foto</option><option value="Fisura visible">Fisura visible</option><option value="Pared sin tarrajear">Pared sin tarrajear</option><option value="Humedad visible">Humedad visible</option><option value="Corrosión superficial">Corrosión superficial</option><option value="Desgaste visible">Desgaste visible</option><option value="Abolladura visible">Abolladura visible</option><option value="Otro daño visible">Otro daño visible</option></select></div>'+
+   '<div class="field"><label>Severidad visual preliminar</label><select name="severity"><option value="leve">Leve</option><option value="moderada">Moderada</option><option value="severa">Severa</option></select></div>'+
+   '<div class="field"><label>Descripción (opcional)</label><textarea name="description" maxlength="500" placeholder="Describe lo que puedes comprobar visualmente"></textarea></div>'+
+   '<div class="field"><label>Mejora recomendada (opcional)</label><input name="improvement" maxlength="300" placeholder="Ej. solicitar presupuesto de reparación"></div>'+
+   '<div class="field"><label>Observaciones del revisor</label><textarea name="notes" maxlength="350" placeholder="Qué se ve y qué no puede comprobarse"></textarea></div>'+
+   '<button class="primary" type="submit">Guardar evaluación manual</button></form></details>';
+   return '<article class="inspection-card"><div class="inspection-number">'+String(i+1).padStart(2,'0')+'</div>'+
+   '<div class="inspection-body"><div class="flex" style="justify-content:space-between"><h3>'+escapeHTML(image.shot)+'</h3><span class="pill">Foto '+(i+1)+'</span></div>'+
+   '<img class="inspection-photo" src="/api/evidence/'+image.id+'" alt="Fotografía adjunta de '+escapeHTML(image.shot)+'">'+
+   (visionEnabled?'<button class="primary" data-vision="'+image.id+'">Analizar fotografía con IA</button>':'')+
+   manualForm+observations+'</div></article>';
  }).join('');
- h.innerHTML='<div class="form-intro"><div><span class="form-eyebrow">Reto de microcrédito / Evaluación visual</span><h2>Inspección guiada del activo</h2><p>Captura cuatro vistas del bien. La IA identifica materiales, defectos visibles y posibles mejoras; cada resultado requiere revisión humana.</p></div>'+status+'</div>'+
- '<div class="grid" style="margin:24px 0"><div class="metric"><small>Cobertura de fotografías</small><strong>'+ins.coverage+'%</strong><small>'+ins.captured+' de '+shots.length+' vistas</small></div><div class="metric"><small>Score visual referencial</small><strong>'+(ins.condition_score===null?'Sin evaluar':ins.condition_score+'/100')+'</strong><small>'+escapeHTML(ins.score_status||'pendiente')+'</small></div></div>'+
- (!visionEnabled?'<div class="vision-warning">Para análisis real con IA multimodal es necesario configurar OPENAI_API_KEY en el servidor. Puedes registrar fotografías sin esa conexión. No se mostrarán resultados simulados.</div>':'<p class="muted">Al pulsar «Analizar», la fotografía será enviada al proveedor externo de IA configurado. Utiliza solo imágenes que tengas autorización para procesar.</p>')+
- '<div class="inspection-grid">'+photos+'</div>'+
- '<div class="credit-panel"><h3>Simulación de microcrédito para mejoras</h3><p class="muted">Requiere las cuatro vistas confirmadas, valor base documentado y presupuesto real de mejoras. No constituye una aprobación de crédito.</p>'+
- (userRole==='operador'?'<p class="muted">Un revisor debe realizar la simulación.</p>':'<form id="creditForm" class="form-grid"><div class="field"><label>Presupuesto documentado (S/)</label><input name="documented_budget" type="number" min="1" step=".01" required placeholder="Ej. 12000"></div><div class="field"><label>Fuente del presupuesto</label><input name="budget_source" required minlength="5" placeholder="Ej. Cotización proveedor y fecha"></div><div class="field field-wide"><button class="primary" type="submit">Calcular monto referencial</button></div></form><div id="creditResult" role="status"></div>')+
- '</div>';
- document.querySelectorAll('.inspection-upload').forEach(form=>form.onsubmit=async ev=>{
-   ev.preventDefault();const button=form.querySelector('button');button.disabled=true;button.textContent='Subiendo...';
-   try{let fd=new FormData(form);fd.set('shot',form.dataset.shot);
-     let r=await fetch('/api/cases/'+c.id+'/evidence',{method:'POST',body:fd,credentials:'same-origin'});
-     let data=await r.json();if(!r.ok)throw Error(data.detail||'Error al subir');
-     await choose(c.id);note('Fotografía registrada: '+form.dataset.shot);
-   }catch(ex){note(ex.message);button.disabled=false;button.textContent='Guardar fotografía'}
- });
+ const optional=shots.map(x=>'<span class="material-chip">'+escapeHTML(x)+'</span>').join('');
+ h.innerHTML='<div class="form-intro"><div><span class="form-eyebrow">Microcrédito / Inspección fotográfica</span><h2>Evaluación visual del activo</h2><p>Comienza con una sola fotografía. Las demás vistas son recomendadas para ampliar la inspección, no son obligatorias para registrar observaciones.</p></div>'+status+'</div>'+
+ '<div class="grid" style="margin:24px 0"><div class="metric"><small>Fotografías registradas</small><strong>'+evidence.length+'</strong><small>'+ins.coverage+'% de vistas sugeridas</small></div><div class="metric"><small>Puntaje visual</small><strong>'+(ins.condition_score===null?'Por evaluar':ins.condition_score+'/100')+'</strong><small>'+(ins.score_status==='provisional_parcial'?'Provisional — cobertura parcial':ins.score_status==='referencial_revisado'?'Referencial revisado':'Falta revisión')+'</small></div></div>'+
+ (!visionEnabled?'<div class="vision-warning"><b>IA automática aún sin conexión.</b> Render no dispone de OPENAI_API_KEY. Puedes guardar una inspección <b>manual, identificada como tal</b>. Para detectar materiales o daños automáticamente se necesita conectar un proveedor de visión; no se inventan resultados.</div>':'<div class="vision-warning">Si utilizas el análisis automático, las fotografías se enviarán al proveedor externo configurado. Asegúrate de contar con autorización para procesarlas.</div>')+
+ '<section class="single-upload"><h3>Adjuntar fotografía para evaluar</h3><p class="muted">Una foto es suficiente para comenzar. Elige la vista que representa; puedes agregar otras después.</p><form id="singleInspectionUpload" class="form-grid"><div class="field"><label>Vista de la fotografía</label><select name="shot">'+shots.map(x=>'<option value="'+escapeHTML(x)+'">'+escapeHTML(x)+'</option>').join('')+'<option value="General">Otra vista / General</option></select></div><div class="field"><label>Imagen (JPG, PNG o WebP, máximo 8 MB)</label><input name="file" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" required></div><div class="field field-wide"><button type="submit" class="primary">Guardar fotografía</button></div></form><div class="suggested-views"><small class="muted">Vistas recomendadas para una evaluación más completa:</small><div>'+optional+'</div></div></section>'+
+ '<h3 style="margin-top:27px">Fotografías del expediente</h3>'+
+ (photos?'<div class="inspection-grid">'+photos+'</div>':'<div class="inspection-placeholder">📷<span>Adjunta una fotografía para iniciar la evaluación</span></div>')+
+ '<div class="credit-panel"><h3>Simulación de microcrédito para mejoras</h3><p class="muted">Puede mostrarse una evaluación visual provisional desde una sola foto revisada. Para simular un crédito se requieren las cuatro vistas recomendadas, valor base y presupuesto sustentados; nunca es aprobación bancaria.</p>'+
+ (userRole==='operador'?'<p class="muted">La simulación corresponde al revisor.</p>':'<form id="creditForm" class="form-grid"><div class="field"><label>Presupuesto documentado (S/)</label><input name="documented_budget" type="number" min="1" step=".01" required></div><div class="field"><label>Fuente del presupuesto</label><input name="budget_source" minlength="5" required></div><div class="field field-wide"><button class="primary" type="submit">Simular monto referencial</button></div></form><div id="creditResult" role="status"></div>')+'</div>';
+ const upload=$('singleInspectionUpload');
+ upload.onsubmit=async ev=>{
+   ev.preventDefault();const btn=upload.querySelector('button');btn.disabled=true;btn.textContent='Subiendo...';
+   try{const r=await fetch('/api/cases/'+c.id+'/evidence',{method:'POST',body:new FormData(upload),credentials:'same-origin'});
+       const data=await r.json();if(!r.ok)throw Error(data.detail||'No se pudo subir la imagen');
+       await choose(c.id);note('Fotografía guardada. Puedes evaluarla sin subir las otras tres vistas.');
+   }catch(ex){note(ex.message);btn.disabled=false;btn.textContent='Guardar fotografía'}
+ };
  document.querySelectorAll('[data-vision]').forEach(btn=>btn.onclick=async()=>{
-   btn.disabled=true;btn.textContent='Analizando fotografía...';
-   try{const d=await request('/api/cases/'+c.id+'/vision/'+btn.dataset.vision,{method:'POST'});
-     await choose(c.id);note('Análisis creado y pendiente de revisión');
-   }catch(ex){note(ex.message);btn.disabled=false;btn.textContent='Analizar esta foto con IA'}
+   btn.disabled=true;btn.textContent='Analizando...';
+   try{await request('/api/cases/'+c.id+'/vision/'+btn.dataset.vision,{method:'POST'});
+       await choose(c.id);note('Propuesta automática recibida, pendiente de revisión');
+   }catch(ex){note(ex.message);btn.disabled=false;btn.textContent='Analizar fotografía con IA'}
+ });
+ document.querySelectorAll('.manual-observation-form').forEach(form=>form.onsubmit=async ev=>{
+   ev.preventDefault();const btn=form.querySelector('button');btn.disabled=true;
+   try{const data=Object.fromEntries(new FormData(form));
+     await request('/api/cases/'+c.id+'/manual-inspection/'+form.dataset.evidence,json('POST',data));
+     await choose(c.id);note('Observación manual guardada. Puntaje provisional actualizado si la condición fue determinable.');
+   }catch(ex){note(ex.message);btn.disabled=false}
  });
  document.querySelectorAll('[data-review-vision]').forEach(btn=>btn.onclick=async()=>{
    btn.disabled=true;
    try{await request('/api/visual-assessments/'+btn.dataset.reviewVision+'/review',json('PUT',{state:btn.dataset.decision}));
-     await choose(c.id);note('Revisión registrada');
+       await choose(c.id);note('Revisión registrada');
    }catch(ex){note(ex.message);btn.disabled=false}
  });
- const credit=$('creditForm');
- if(credit)credit.onsubmit=async ev=>{
-   ev.preventDefault();const data=Object.fromEntries(new FormData(credit));
-   data.documented_budget=Number(data.documented_budget);
-   try{const result=await request('/api/cases/'+c.id+'/credit-simulation',json('POST',data));
-     $('creditResult').textContent=result.suggested_amount===null?'Pendiente: '+result.reason:'Simulación referencial: '+money(result.suggested_amount)+'. '+result.reason;
+ const credit=$('creditForm');if(credit)credit.onsubmit=async ev=>{
+   ev.preventDefault();const data=Object.fromEntries(new FormData(credit));data.documented_budget=Number(data.documented_budget);
+   try{const r=await request('/api/cases/'+c.id+'/credit-simulation',json('POST',data));
+     $('creditResult').textContent=r.suggested_amount===null?'Pendiente: '+r.reason:'Monto orientativo: '+money(r.suggested_amount)+'. '+r.reason;
    }catch(ex){note(ex.message)}
  };
 }
