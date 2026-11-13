@@ -3,6 +3,8 @@ import json
 import os
 import tempfile
 from pathlib import Path
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from PIL import Image, ImageDraw
 from yolo_service import predict_findings
