@@ -402,6 +402,15 @@ body{background:#f1f5fc}
 .scenario-fields input{min-height:44px;padding:10px;border:1px solid #ceddf3;border-radius:9px}
 #scenarioStatus{font-size:12px;color:#2356b8;margin-top:13px;line-height:1.6}
 @media(max-width:750px){.improvements-grid,.scenario-fields{grid-template-columns:1fr}.scenario-fields label:last-child{grid-column:1}}
+
+.model-coverage{padding:18px;border-radius:15px;border:1px solid #dce8f9;background:#f6faff;margin:22px 0 0}
+.model-coverage summary{font-size:13px;color:#2050a5;font-weight:790;cursor:pointer}
+.model-coverage-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:16px}
+.model-coverage-grid b{display:block;font-size:12px;margin-bottom:9px;color:#263f66}
+.model-capable,.model-pending{display:inline-flex;margin:3px;max-width:100%;padding:6px 9px;font-size:11px;border-radius:20px;background:#dff6e9;color:#1b774e;text-transform:capitalize}
+.model-pending{background:#fff0dc;color:#8b6328}
+.model-coverage p{font-size:12px;line-height:1.6;color:#6a7d98}
+@media(max-width:670px){.model-coverage-grid{grid-template-columns:1fr}}
 </style></head><body>
 <div id="loginPanel" class="card auth hide"><div class="brand"><span class="logo">TV</span><div><h1 class="heading">Tasación Visual</h1><p class="muted">Ingreso seguro al sistema</p></div></div>
 <form id="loginForm"><div class="field"><label>Usuario</label><input id="user" autocomplete="username" required placeholder="administrador"></div><div class="field"><label>Contraseña</label><input id="pass" type="password" autocomplete="current-password" required></div><button class="primary" style="width:100%">Ingresar</button></form><p id="loginError" class="danger"></p></div>
@@ -504,6 +513,10 @@ function renderQuickResults(result){
  ((result.improvements||[]).length?
     '<div class="improvements-grid">'+result.improvements.map((item,i)=>'<article class="improvement-item"><span class="improvement-index">'+String(i+1).padStart(2,'0')+'</span><div><strong>'+escapeHTML(item.label||item.category)+'</strong><p><b>'+escapeHTML(item.shot)+':</b> '+escapeHTML(item.action)+'</p><small>Antes de cotizar: '+escapeHTML(item.before_quoting)+'</small></div></article>').join('')+'</div>':
     '<p class="result-empty">No hay mejoras justificadas automáticamente por los hallazgos. Se recomienda inspección de las zonas no fotografiadas.</p>')+'</section>'+
+ '<details class="model-coverage"><summary>Qué puede detectar YOLO y qué requiere entrenamiento</summary><div class="model-coverage-grid">'+
+ '<div><b>YOLO habilitado</b>'+(result.capabilities?.automatic||[]).map(x=>'<span class="model-capable">'+escapeHTML(x.replaceAll("_"," "))+'</span>').join('')+'</div>'+
+ '<div><b>Pendiente de entrenamiento</b>'+(result.capabilities?.training_required||[]).map(x=>'<span class="model-pending">'+escapeHTML(x.replaceAll("_"," "))+'</span>').join('')+'</div></div>'+
+ '<p>Las clases pendientes no se deducen por la ausencia de una caja. Las alertas de moho, filtración y pintura requieren revisión especial por su menor precisión.</p></details>'+
  '<div class="result-price-panel"><div class="result-section-head"><h3>Presupuesto y valor del inmueble</h3><span>Cálculo referencial</span></div>'+
  '<div class="result-price-grid"><div><small>Cotización de mejoras</small><strong>Por cuantificar</strong><p>Para un total en soles faltan metrados y cotizaciones verificadas. La IA no puede medir superficies reales de una foto sin escala.</p></div><div><small>Tasación monetaria</small><strong id="referenceTotal">Requiere datos de referencia</strong><p>Fotos solas no determinan valor de mercado ni de garantía. Usa valores oficiales o comparables documentados.</p></div></div>'+
  '<details class="valuation-expand"><summary>Calcular escenario monetario con datos documentados (opcional)</summary><p>Si conoces el área real y un costo por m² sustentado, el sistema calculará una referencia en S/. No es un avalúo pericial ni una cifra extraída de las fotografías.</p>'+
