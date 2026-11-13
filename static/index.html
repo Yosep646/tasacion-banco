@@ -219,6 +219,73 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .quick-alert{background:#fff5e9;border:1px solid #ffddb5;color:#855b25;border-radius:12px;padding:15px;font-size:12px}
 @media(max-width:1150px){.quick-main-grid{grid-template-columns:1fr}.quick-aside{grid-template-columns:1.3fr 1fr}}
 @media(max-width:750px){.quick-aside,.quick-upload-grid,.result-photo-grid,.result-two-col,.result-price-grid{grid-template-columns:1fr}.quick-stepper .step{padding:9px 8px;gap:5px;font-size:10px}.quick-stepper .step b{width:23px;height:23px}.quick-top-badge{display:none}.quick-new-form{padding:17px}.quick-upload-card{min-height:190px}.result-photo img{height:200px}}
+
+/* Visual refresh / responsive UX — upload controls are accessible but not duplicated. */
+:root{--blue:#275ce6;--ink:#13243e;--muted:#697c98;--line:#e3eaf4}
+body{background:linear-gradient(125deg,#f4f7fc 0%,#edf4ff 56%,#f8fafc 100%)}
+.shell{max-width:1610px}
+.top{background:transparent;padding-bottom:22px}
+.top .brand .heading{font-size:24px}
+#workspace:has(.quick-top){background:#fff;border:1px solid #e0e9f6;border-radius:24px;box-shadow:0 20px 55px rgba(20,49,91,.07);padding:26px}
+.quick-top{position:relative;align-items:center;min-height:190px;overflow:hidden;border-radius:21px;padding:30px 34px;background:linear-gradient(111deg,#10284d 0%,#1944a1 62%,#2969df 100%);color:white}
+.quick-top:after{content:"";position:absolute;right:-50px;top:-90px;width:340px;height:340px;border-radius:50%;border:42px solid rgba(255,255,255,.07);pointer-events:none}
+.quick-top>div{position:relative;z-index:1}
+.quick-top h2{color:#fff!important;font-weight:800;font-size:clamp(27px,2.7vw,39px);letter-spacing:-1.3px;max-width:720px;margin:14px 0 11px!important}
+.quick-top p{color:#d7e5ff;font-size:13px;line-height:1.75;max-width:640px}
+.quick-top .quick-eyebrow{color:#bad4ff;letter-spacing:1.6px}
+.quick-top .live-dot{background:#56e0a3;box-shadow:0 0 0 4px rgba(83,225,170,.15)}
+.quick-top-badge{min-width:145px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.22);backdrop-filter:blur(5px);border-radius:18px;padding:20px 18px}
+.quick-top-badge span{color:white;font-size:31px}
+.quick-top-badge small{color:#e0ebff;font-size:12px}
+.quick-stepper{margin:21px 0 24px}
+.quick-stepper .step{border-radius:14px;background:#f7f9fd;border-color:#e4eaf3;padding:14px;font-size:12px;color:#8190a5}
+.quick-stepper .step.is-current{background:#edf3ff;border-color:#cddfff;color:#184db3}
+.quick-stepper .step.is-current b{background:#275de5}
+.quick-main-grid{grid-template-columns:minmax(0,1.8fr) minmax(250px,.83fr);gap:20px}
+.quick-new-form{border-radius:20px;background:#fff;padding:26px;border:1px solid #e2eaf5;box-shadow:0 12px 30px rgba(25,54,96,.04)}
+.quick-section-heading h3{font-size:19px;letter-spacing:-.4px;color:#162b4b}
+.quick-section-heading p{font-size:13px}
+.quick-upload-grid{gap:14px}
+.quick-upload-card{position:relative;padding:24px 14px;min-height:245px;border:1.5px dashed #b6cbee;border-radius:16px;background:#f7faff;transition:background .2s,border-color .2s,transform .2s,box-shadow .2s;overflow:hidden}
+.quick-upload-card:hover{background:#edf5ff;border-color:#457ae8;box-shadow:0 9px 22px #2858b217;transform:translateY(-1px)}
+.quick-upload-card:focus-within{outline:3px solid #a4befd;outline-offset:3px}
+.quick-upload-card input[type=file]{position:absolute!important;opacity:0!important;width:1px!important;height:1px!important;top:0;left:0;overflow:hidden;pointer-events:none;padding:0!important;margin:0!important;border:0!important}
+.quick-upload-card .upload-symbol{width:58px;height:58px;font-size:31px;background:#e4eeff;border:1px solid #d7e5ff;border-radius:17px;color:#2863d7}
+.quick-upload-card .upload-title{font-size:16px;color:#172d50;font-weight:800}
+.quick-upload-card .upload-title em{display:inline-block;margin-top:8px;border-radius:40px;padding:4px 10px;background:#e7f0ff;font-size:10px;color:#2056c7}
+.quick-upload-card .upload-title em.tag-optional{color:#697993;background:#e9eff8}
+.quick-upload-card .upload-help{font-size:12px;line-height:1.55}
+.quick-upload-card .upload-file-name{display:inline-block;max-width:100%;font-size:12px;padding:9px 12px;background:#fff;border:1px solid #d1def2;border-radius:10px;color:#1b4eb2;font-weight:800;margin-top:3px}
+.quick-upload-card.has-photo{border-style:solid;border-color:#6c9df3;background:#f5f9ff;justify-content:flex-start}
+.quick-upload-card.has-photo .upload-symbol{display:none}
+.quick-upload-card .upload-preview{height:160px;border:1px solid #e0e9f6;box-shadow:0 4px 15px #0a224b16}
+.quick-upload-card.has-photo .upload-preview{order:-1}
+.quick-upload-card.has-photo .upload-help{display:none}
+.upload-security{margin-top:17px;line-height:1.6}
+.quick-submit-area{border-top:1px solid #edf1f7;padding-top:21px;align-items:center}
+.quick-action-btn{min-height:52px!important;padding:13px 21px!important;font-size:13px!important;background:linear-gradient(110deg,#285ee4,#1d4fc6);border-radius:12px!important;box-shadow:0 10px 22px #2256ce26}
+.quick-action-btn:hover{transform:translateY(-1px);box-shadow:0 13px 25px #2256ce35}
+.quick-action-caption{max-width:185px;line-height:1.6}
+.quick-aside{gap:15px}
+.side-explainer{background:#f8fbff;border-radius:20px;padding:25px;border-color:#e0e8f5}
+.quick-aside-heading{font-size:19px;margin:12px 0 6px;letter-spacing:-.5px;line-height:1.35;color:#1b345a}
+.side-feature{margin-top:22px}
+.side-feature b{font-size:14px}
+.side-feature p{font-size:12px;line-height:1.65}
+.feature-icon{border-radius:12px;width:39px;height:39px;background:#e7effe}
+.quick-scope{background:#fffbf3;border-radius:18px;border-color:#f1dfbd;padding:21px}
+.quick-scope b{font-size:13px}
+.quick-scope p{font-size:12px}
+.side>.card{border-radius:21px!important}
+.side #newCase{background:#1e3558;color:#d9e7ff;border:1px solid #355276}
+.side #newCase:hover{background:#2a446a}
+.side #quickStart{background:linear-gradient(110deg,#477dff,#2b68ef)}
+#notice{max-width:900px}
+#workspace:has(.quick-result-title) .result-status-card{border-radius:18px}
+@media(min-width:1250px){.layout{grid-template-columns:278px minmax(0,1fr);gap:21px}.quick-top h2{font-size:34px}}
+@media(max-width:1110px){.quick-main-grid{grid-template-columns:1fr}.quick-aside{grid-template-columns:1fr 1fr}.quick-top{padding:25px}}
+@media(max-width:800px){#workspace:has(.quick-top){padding:16px}.quick-top{padding:25px 20px;min-height:160px}.quick-top-badge{display:none}.quick-aside{grid-template-columns:1fr 1fr}}
+@media(max-width:620px){.quick-upload-grid,.quick-aside{grid-template-columns:1fr}.quick-upload-card{min-height:202px}.quick-top h2{font-size:28px}.quick-stepper .step{font-size:10px;padding:9px 6px}.quick-stepper .step b{height:23px;width:23px}.quick-new-form{padding:18px}.quick-section-heading{flex-wrap:wrap}.quick-submit-area .quick-action-btn{width:100%}.quick-action-caption{max-width:100%}}
 </style></head><body>
 <div id="loginPanel" class="card auth hide"><div class="brand"><span class="logo">TV</span><div><h1 class="heading">Tasación Visual</h1><p class="muted">Ingreso seguro al sistema</p></div></div>
 <form id="loginForm"><div class="field"><label>Usuario</label><input id="user" autocomplete="username" required placeholder="administrador"></div><div class="field"><label>Contraseña</label><input id="pass" type="password" autocomplete="current-password" required></div><button class="primary" style="width:100%">Ingresar</button></form><p id="loginError" class="danger"></p></div>
@@ -241,33 +308,33 @@ function renderQuickStart(){
  current=null;
  drawCases();
  $('workspace').innerHTML='<div class="quick-top"><div><span class="quick-eyebrow"><span class="live-dot"></span> ASISTENTE DE INSPECCIÓN VISUAL</span>'+
- '<h2>Conoce el estado visible de tu vivienda.</h2><p>Adjunta una foto exterior y, si la tienes, una interior. YOLO detectará posibles fisuras y preparará tu informe preliminar automáticamente.</p></div>'+
- '<div class="quick-top-badge"><span>01 / 02</span><small>Fotos necesarias</small></div></div>'+
+ '<h2>Una inspección más simple. Una decisión mejor informada.</h2><p>Carga una fotografía de la vivienda y añade una del interior si la tienes. Analizamos posibles fisuras y generamos un informe visual preliminar en un mismo paso.</p></div>'+
+ '<div class="quick-top-badge"><span>1–2</span><small>fotografías</small></div></div>'+
  '<div class="quick-stepper" aria-label="Etapas del análisis"><div class="step is-current"><b>01</b><span>Subir imágenes</span></div><div class="step"><b>02</b><span>Análisis con IA</span></div><div class="step"><b>03</b><span>Informe listo</span></div></div>'+
  '<div class="quick-main-grid"><form id="quickForm" class="quick-new-form">'+
- '<div class="quick-section-heading"><div><h3>Fotografías de la vivienda</h3><p>Imágenes nítidas y con buena iluminación ayudan a detectar problemas visibles.</p></div><span class="quick-optional-tag">Hasta 2 fotos</span></div>'+
+ '<div class="quick-section-heading"><div><h3>Agrega las fotografías</h3><p>Con una sola imagen puedes comenzar. La segunda mejora la cobertura visual.</p></div><span class="quick-optional-tag">Hasta 2 fotos</span></div>'+
  '<div class="quick-upload-grid"><label class="quick-upload-card" id="exteriorCard"><input id="exteriorFile" type="file" name="exterior" accept="image/jpeg,image/png,image/webp" required>'+
- '<span class="upload-symbol" aria-hidden="true">＋</span><span class="upload-title">Vista exterior <em>Obligatoria</em></span><span class="upload-help">Fachada o pared exterior</span>'+
- '<img class="upload-preview" id="exteriorPreview" alt="Vista previa de la fotografía exterior" hidden><span class="upload-file-name" id="exteriorName">Seleccionar fotografía</span></label>'+
+ '<span class="upload-symbol" aria-hidden="true">⌁</span><span class="upload-title">Vista exterior <em>Obligatoria</em></span><span class="upload-help">Fachada, pared o acceso de la vivienda</span>'+
+ '<img class="upload-preview" id="exteriorPreview" alt="Vista previa de la fotografía exterior" hidden><span class="upload-file-name" id="exteriorName">Elegir imagen exterior</span></label>'+
  '<label class="quick-upload-card" id="interiorCard"><input id="interiorFile" type="file" name="interior" accept="image/jpeg,image/png,image/webp">'+
- '<span class="upload-symbol" aria-hidden="true">＋</span><span class="upload-title">Vista interior <em class="tag-optional">Opcional</em></span><span class="upload-help">Pared, techo o habitación</span>'+
- '<img class="upload-preview" id="interiorPreview" alt="Vista previa de la fotografía interior" hidden><span class="upload-file-name" id="interiorName">Añadir segunda foto</span></label></div>'+
+ '<span class="upload-symbol" aria-hidden="true">＋</span><span class="upload-title">Vista interior <em class="tag-optional">Opcional</em></span><span class="upload-help">Habitación, pared o techo</span>'+
+ '<img class="upload-preview" id="interiorPreview" alt="Vista previa de la fotografía interior" hidden><span class="upload-file-name" id="interiorName">Añadir imagen interior</span></label></div>'+
  '<p class="upload-security">Formatos: JPG, PNG o WebP · Máximo 8 MB por foto · Tus imágenes se almacenan en el expediente.</p>'+
  '<div class="quick-submit-area"><button class="primary quick-action-btn" type="submit" id="quickAnalyzeBtn"><span aria-hidden="true">✦</span> Analizar vivienda y generar informe</button>'+
- '<span class="quick-action-caption">No necesitas llenar datos de materiales ni daños.</span></div>'+
+ '<span class="quick-action-caption">Sin cuestionarios ni registro manual de daños.</span></div>'+
  '<div class="quick-progress" id="quickProgress" role="status" aria-live="polite" hidden><span class="progress-spinner" aria-hidden="true"></span><span id="quickProgressText"></span></div></form>'+
- '<aside class="quick-aside"><div class="side-explainer"><span class="quick-small-label">¿QUÉ RECIBIRÁS?</span>'+
+ '<aside class="quick-aside"><div class="side-explainer"><span class="quick-small-label">EN UN SOLO ANÁLISIS</span><h3 class="quick-aside-heading">Del diagnóstico visual al informe</h3>'+
  '<div class="side-feature"><span class="feature-icon">⌗</span><div><b>Detección visual</b><p>Posibles fisuras resaltadas en la fotografía.</p></div></div>'+
  '<div class="side-feature"><span class="feature-icon">▤</span><div><b>Informe inmediato</b><p>Hallazgos, recomendaciones y PDF descargable.</p></div></div>'+
  '<div class="side-feature"><span class="feature-icon">◇</span><div><b>Estimación responsable</b><p>Sin inventar precios, dimensiones ni valor comercial.</p></div></div></div>'+
- '<div class="quick-scope"><b>Alcance del modelo</b><p>YOLO reconoce posibles fisuras. El reconocimiento de más materiales o daños necesita modelos adicionales. Una foto no demuestra seguridad estructural.</p></div></aside></div>';
+ '<div class="quick-scope"><b>Importante sobre el resultado</b><p>YOLO reconoce posibles fisuras. El reconocimiento de más materiales o daños necesita modelos adicionales. Una foto no demuestra seguridad estructural.</p></div></aside></div>';
  const form=$('quickForm');
  function updatePreview(kind){
    const input=$(kind+'File'), card=$(kind+'Card'),preview=$(kind+'Preview'),label=$(kind+'Name'),file=input.files[0];
    if(preview.dataset.url){URL.revokeObjectURL(preview.dataset.url);delete preview.dataset.url}
-   if(!file){preview.hidden=true;preview.removeAttribute('src');card.classList.remove('has-photo');label.textContent=kind==='exterior'?'Seleccionar fotografía':'Añadir segunda foto';return}
+   if(!file){preview.hidden=true;preview.removeAttribute('src');card.classList.remove('has-photo');label.textContent=kind==='exterior'?'Elegir imagen exterior':'Añadir imagen interior';return}
    const okay=['image/jpeg','image/png','image/webp'].includes(file.type)&&file.size<=8*1024*1024&&file.size>0;
-   if(!okay){input.value='';preview.hidden=true;card.classList.remove('has-photo');label.textContent='Seleccionar fotografía';note('Solo JPG, PNG o WebP de hasta 8 MB.');return}
+   if(!okay){input.value='';preview.hidden=true;card.classList.remove('has-photo');label.textContent=kind==='exterior'?'Elegir imagen exterior':'Añadir imagen interior';note('Solo JPG, PNG o WebP de hasta 8 MB.');return}
    const url=URL.createObjectURL(file);preview.src=url;preview.dataset.url=url;preview.hidden=false;
    card.classList.add('has-photo');label.textContent=file.name.length>28?file.name.slice(0,25)+'…':file.name;
    note('');
