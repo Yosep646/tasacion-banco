@@ -137,28 +137,35 @@ def evaluate_condition(asset_type, evidence, assessments, findings):
                 if eid in latest and latest[eid]["state"] == "confirmado"]
     pending = [latest[eid] for eid in by_shot.values()
                if eid in latest and latest[eid]["state"] == "pendiente"]
-    full = len(by_shot) == len(shots) and len(reviewed) == len(shots)
-    issues = [issue for x in reviewed for issue in json.loads(x["result_json"]).get("issues", [])]
-    deductions = sum({"leve": 5, "moderada": 12, "severa": 25}.get(x["severity"], 12) for x in issues)
-    known = sum(json.loads(x["result_json"]).get("condition") != "no_determinable" for x in reviewed)
-    # No score when images are insufficient or nothing can be determined.
-    ready = full and known == len(shots)
+    issues = [issue for assessment in reviewed
+              for issue in json.loads(assessment["result_json"]).get("issues", [])]
+    deductions = sum({"leve": 5, "moderada": 12, "severa": 25}.get(x["severity"], 12)
+                     for x in issues)
+    known = sum(json.loads(x["result_json"]).get("condition") != "no_determinable"
+                for x in reviewed)
+    # One reviewed photograph is enough for a provisional visual assessment,
+    # but never for a validated loan suggestion.
+    provisional = bool(reviewed) and known == len(reviewed)
+    complete = (len(by_shot) == len(shots)
+                and len(reviewed) == len(shots)
+                and known == len(shots))
     return {
-        "required_shots": shots,
-        "captured": len(by_shot), "reviewed": len(reviewed), "pending": len(pending),
-        "coverage": round(100 * len(by_shot) / len(shots)),
-        "condition_score": max(0, 100 - deductions) if ready else None,
-        "score_status": "referencial_revisado" if ready else "insuficiente",
+        "required_shots": shots, "captured": len(by_shot), "reviewed": len(reviewed),
+        "pending": len(pending), "coverage": round(100 * len(by_shot) / len(shots)),
+        "condition_score": max(0, 100 - deductions) if provisional else None,
+        "score_status": ("referencial_revisado" if complete
+                         else "provisional_parcial" if provisional else "insuficiente"),
+        "credit_ready": complete,
         "issue_count": len(issues),
-        "explanation": "Regla ilustrativa: base 100; -5 leve, -12 moderada, -25 severa. No es score bancario validado.",
+        "explanation": "Puntaje visual ilustrativo sobre fotos revisadas: 100; -5 leve, -12 moderada, -25 severa. Con menos de cuatro vistas es parcial; no es score crediticio.",
     }
 
 
 def simulate_credit(condition, base_value, documented_budget, fraction=0.7):
     """Illustrative improvement loan range, never an approval."""
-    if condition["condition_score"] is None or base_value <= 0 or documented_budget <= 0:
+    if not condition.get("credit_ready", False) or base_value <= 0 or documented_budget <= 0:
         return {"status": "pendiente", "suggested_amount": None,
-                "reason": "Se necesitan 4 tomas revisadas, valor base con fuente y presupuesto documentado."}
+                "reason": "La simulación requiere las cuatro vistas revisadas, valor base con fuente y presupuesto documentado; una sola foto produce evaluación parcial."}
     amount = min(documented_budget * fraction, base_value * 0.3)
     return {"status": "simulacion_no_vinculante", "suggested_amount": round(amount, 2),
             "reason": "Ejemplo configurable: 70% del presupuesto o 30% del valor base, el menor. No es politica de una entidad financiera."}
