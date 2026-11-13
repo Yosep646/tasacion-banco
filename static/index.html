@@ -133,6 +133,92 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .quick-limits summary{font-weight:700;cursor:pointer}
 #quickProgress{color:#2553ba;font-size:13px;margin-top:13px;font-weight:650}
 @media(max-width:710px){.quick-form,.quick-pictures{grid-template-columns:1fr}.quick-drop{min-height:195px;padding:18px}}
+
+/* Evaluación rápida V3: un flujo de carga y resultado legible */
+#workspace:has(.quick-top),#workspace:has(.quick-result-title){padding:clamp(24px,3.2vw,46px)}
+.quick-eyebrow{display:inline-flex;align-items:center;gap:9px;color:#2458cc;font-weight:800;letter-spacing:1.3px;font-size:11px}
+.live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#28b888;box-shadow:0 0 0 4px #dff7ee}
+.quick-top{display:flex;align-items:flex-start;justify-content:space-between;gap:24px}
+.quick-top h2,.quick-result-title h2{font-size:clamp(28px,3vw,39px);line-height:1.17;letter-spacing:-1.25px;max-width:680px;margin:16px 0 11px!important;color:#112444}
+.quick-top p,.quick-result-title p{max-width:680px;color:#627590;font-size:14px;line-height:1.7;margin:0}
+.quick-top-badge{flex-shrink:0;background:#eaf2ff;border:1px solid #d5e5fd;border-radius:16px;padding:16px 18px;text-align:center;min-width:118px}
+.quick-top-badge span{display:block;font-weight:850;font-size:22px;color:#1950c9}.quick-top-badge small{font-size:11px;color:#6e82a3}
+.quick-stepper{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:28px 0 30px}
+.quick-stepper .step{display:flex;gap:9px;align-items:center;padding:13px 14px;border:1px solid #e3eaf4;border-radius:12px;color:#8190a6;font-size:12px;font-weight:650;background:#fafbfe}
+.quick-stepper .step b{font-size:12px;border:1px solid #dae3ef;border-radius:8px;display:grid;place-items:center;width:28px;height:28px;flex-shrink:0}
+.quick-stepper .step.is-current{background:#eaf2ff;color:#184ebf;border-color:#c9ddff}
+.quick-stepper .step.is-current b{background:#245fe0;border-color:#245fe0;color:white}
+.quick-stepper .step.is-done{color:#186c50;background:#eaf8f1;border-color:#ccebdd}
+.quick-main-grid{display:grid;grid-template-columns:minmax(0,1.8fr) minmax(235px,1fr);gap:22px;align-items:start}
+.quick-new-form{background:white;border:1px solid #e0e8f3;border-radius:18px;padding:24px;min-width:0}
+.quick-section-heading{display:flex;align-items:start;gap:13px;justify-content:space-between;margin-bottom:20px}
+.quick-section-heading h3{margin:0 0 7px;font-size:17px;letter-spacing:-.3px}
+.quick-section-heading p{font-size:12px;color:#76879e;line-height:1.5;margin:0}
+.quick-optional-tag{font-size:11px;white-space:nowrap;color:#355fa6;background:#edf4fe;border-radius:50px;padding:7px 10px;font-weight:750}
+.quick-upload-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px}
+.quick-upload-card{border:2px dashed #bfd0e8;border-radius:15px;background:#f8faff;min-width:0;min-height:252px;padding:19px 14px;cursor:pointer;text-align:center;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:10px;transition:border-color .15s,background .15s}
+.quick-upload-card:hover,.quick-upload-card:focus-within{border-color:#3975eb;background:#edf4ff}
+.quick-upload-card.has-photo{background:#f4f9ff;border-color:#5b95ed}
+.quick-upload-card input{width:100%;font-size:11px;color:#5d708c;max-width:100%;border:0;padding:0;background:transparent;margin-top:5px}
+.quick-upload-card input::file-selector-button{background:#e8f0fd;color:#2255bd;border:1px solid #cce0fa;border-radius:7px;padding:7px;margin-right:5px;cursor:pointer;font-size:11px}
+.quick-upload-card .upload-symbol{font-size:29px;display:grid;place-items:center;width:51px;height:51px;background:#e8f1ff;color:#285de0;border-radius:15px;font-weight:400}
+.quick-upload-card .upload-title{font-size:14px;color:#1e3150}
+.quick-upload-card .upload-title em{display:block;color:#1d65ce;font-weight:700;font-style:normal;font-size:10px;margin-top:4px}
+.quick-upload-card .upload-title em.tag-optional{color:#8592a7}
+.quick-upload-card .upload-help{font-size:12px;font-weight:400;color:#7487a1}
+.quick-upload-card .upload-preview{width:100%;height:134px;object-fit:cover;border-radius:10px}
+.quick-upload-card .upload-preview[hidden]{display:none}
+.quick-upload-card .upload-file-name{font-size:11px;color:#2854a6;font-weight:750;overflow-wrap:anywhere}
+.upload-security{font-size:11px;color:#8290a3;line-height:1.5;margin:14px 0 0}
+.quick-submit-area{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:21px}
+.quick-action-btn{min-height:49px;display:inline-flex;gap:9px;align-items:center;justify-content:center;text-decoration:none;font-size:13px}
+.quick-action-btn:disabled{opacity:.65;cursor:progress}
+.quick-action-caption{font-size:11px;color:#7789a0;max-width:210px;line-height:1.6}
+.quick-aside{display:grid;gap:14px}
+.side-explainer{border:1px solid #e0e9f5;border-radius:17px;padding:23px;background:#f8fbff}
+.quick-small-label{letter-spacing:1.35px;font-size:10px;font-weight:850;color:#5376b3}
+.side-feature{display:flex;gap:12px;margin-top:23px;align-items:flex-start}
+.side-feature b{font-size:13px;color:#213550}.side-feature p{font-size:12px;color:#71829a;margin:5px 0 0;line-height:1.5}
+.feature-icon{width:37px;height:37px;background:#e6efff;color:#2559c6;border-radius:12px;flex-shrink:0;display:grid;place-items:center;font-size:20px}
+.quick-scope{background:#fff9ee;border:1px solid #f6e4bf;border-radius:15px;padding:18px;color:#725521}
+.quick-scope b{font-size:12px}.quick-scope p{font-size:12px;line-height:1.6;margin:8px 0 0}
+.quick-progress{display:flex;align-items:center;gap:12px;background:#eef5ff;border:1px solid #cddfff;color:#1e56b0;border-radius:11px;padding:14px;margin-top:16px;font-size:12px;line-height:1.6}
+.quick-progress[hidden]{display:none}.quick-progress.is-error{background:#fff1f1;border-color:#f3cece;color:#a13939}
+.progress-spinner{display:block;width:20px;height:20px;flex-shrink:0;border:3px solid #bdd4fb;border-top-color:#1d62de;border-radius:50%;animation:quickspin .8s linear infinite}
+@keyframes quickspin{to{transform:rotate(360deg)}}
+.quick-result-title{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
+.quick-report-tag{border-radius:99px;background:#fff4e7;border:1px solid #f4dec0;color:#9b6925;padding:9px 13px;font-size:11px;font-weight:700}
+.result-status-card{background:linear-gradient(120deg,#edf4ff,#f8fbff);border:1px solid #d1e1fb;border-radius:18px;padding:26px;display:flex;justify-content:space-between;gap:15px;align-items:center}
+.result-status-card strong{display:block;margin:9px 0;font-size:21px;color:#1949ad;line-height:1.4}
+.result-status-card p{margin:0;color:#6b7c94;font-size:12px}
+.result-status-icon{color:#2864d1;font-size:42px;background:white;width:62px;height:62px;border-radius:16px;display:grid;place-items:center}
+.result-section-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:24px 0 15px}
+.result-section-head h3{margin:0;font-size:17px}.result-section-head span{font-size:11px;color:#7890aa}
+.result-photo-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.result-photo{border:1px solid #dee9f5;border-radius:16px;overflow:hidden;background:white}
+.result-photo img{width:100%;height:250px;object-fit:cover}.result-photo>div{padding:15px}
+.result-photo strong{font-size:14px}.result-photo p{font-size:12px;color:#71839a;line-height:1.6}
+.result-two-col{display:grid;grid-template-columns:1.3fr 1fr;gap:20px;margin-top:25px}
+.result-panel{border:1px solid #e1e9f4;background:#fdfefe;padding:18px;border-radius:16px}
+.result-panel .result-section-head{margin-top:0}
+.result-issue{display:flex;gap:11px;padding:13px 0;border-top:1px solid #e8ecf3}
+.issue-bullet{background:#fff0e7;color:#c77834;font-size:17px;font-weight:800;width:27px;height:27px;border-radius:9px;display:grid;place-items:center;flex-shrink:0}
+.result-issue-heading{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.result-issue-heading strong{font-size:13px}
+.result-review-state{background:#fff4e2;color:#a87121;padding:4px 8px;border-radius:30px;font-size:10px}
+.result-issue p,.result-issue small{font-size:12px;line-height:1.6;color:#687b91}
+.result-empty{font-size:13px;line-height:1.7;color:#687b91}
+.result-price-panel{border:1px solid #dce7f5;border-radius:16px;background:#f7faff;padding:19px;margin-top:20px}
+.result-price-panel .result-section-head{margin:0 0 16px}
+.result-price-grid{display:grid;grid-template-columns:1fr 1fr;gap:15px}
+.result-price-grid>div{border-radius:12px;background:#fff;padding:18px}
+.result-price-grid small{font-size:12px;color:#71839a}
+.result-price-grid strong{display:block;margin:8px 0;color:#214ca3;font-size:19px}
+.result-price-grid p{font-size:12px;color:#7b89a0;line-height:1.55}
+.quote-unit-list{font-size:12px;color:#4d6587;margin-top:15px}
+.quick-alert{background:#fff5e9;border:1px solid #ffddb5;color:#855b25;border-radius:12px;padding:15px;font-size:12px}
+@media(max-width:1150px){.quick-main-grid{grid-template-columns:1fr}.quick-aside{grid-template-columns:1.3fr 1fr}}
+@media(max-width:750px){.quick-aside,.quick-upload-grid,.result-photo-grid,.result-two-col,.result-price-grid{grid-template-columns:1fr}.quick-stepper .step{padding:9px 8px;gap:5px;font-size:10px}.quick-stepper .step b{width:23px;height:23px}.quick-top-badge{display:none}.quick-new-form{padding:17px}.quick-upload-card{min-height:190px}.result-photo img{height:200px}}
 </style></head><body>
 <div id="loginPanel" class="card auth hide"><div class="brand"><span class="logo">TV</span><div><h1 class="heading">Tasación Visual</h1><p class="muted">Ingreso seguro al sistema</p></div></div>
 <form id="loginForm"><div class="field"><label>Usuario</label><input id="user" autocomplete="username" required placeholder="administrador"></div><div class="field"><label>Contraseña</label><input id="pass" type="password" autocomplete="current-password" required></div><button class="primary" style="width:100%">Ingresar</button></form><p id="loginError" class="danger"></p></div>
@@ -151,50 +237,89 @@ $('loginForm').onsubmit=async ev=>{ev.preventDefault();try{await request('/api/l
 $('logout').onclick=async()=>{await request('/api/logout',{method:'POST'});showLogin()};
 
 function renderQuickStart(){
- selected=null;drawCases();
- $('workspace').innerHTML='<div class="quick-hero"><span class="form-eyebrow">Tasación visual rápida / Asistencia automatizada</span><h2>Analiza tu vivienda con 1 o 2 fotos</h2><p>Sube una foto exterior y, si deseas, otra del interior. El sistema ejecutará YOLO para detectar posibles fisuras y generará un informe preliminar sin llenar un expediente manual.</p></div>'+
- '<div class="quick-labels"><span>01 · Fotografías</span><span>02 · Detección automática</span><span>03 · Informe inmediato</span></div>'+
- '<form id="quickForm" class="quick-form"><label class="quick-drop"><span class="quick-emoji">🏠</span><strong>Foto exterior</strong><small>Obligatoria · fachada, muro o vista exterior</small><input type="file" accept="image/jpeg,image/png,image/webp" name="exterior" required></label>'+
- '<label class="quick-drop"><span class="quick-emoji">🛋️</span><strong>Foto interior</strong><small>Opcional · habitación, pared o techo</small><input type="file" accept="image/jpeg,image/png,image/webp" name="interior"></label>'+
- '<div class="quick-actions"><button class="primary" type="submit">Analizar vivienda y generar informe</button><small class="muted">JPG, PNG o WebP · 8 MB máximo por imagen. El análisis puede tardar al iniciar el servidor gratuito.</small></div></form>'+
- '<p class="vision-warning"><b>Alcance real:</b> YOLO actualmente identifica posibles fisuras. Si hay visión multimodal configurada, se añadirán observaciones de materiales y otros deterioros. El sistema no puede valorar con precisión toda una propiedad ni calcular el costo total de las mejoras sin metrados y precios documentados.</p><div id="quickProgress" role="status" aria-live="polite"></div>';
- $('quickForm').onsubmit=async e=>{
-   e.preventDefault();
-   const form=e.currentTarget;
-   const submit=form.querySelector('button[type=submit]');
-   submit.disabled=true;submit.textContent='Analizando las fotos…';
-   $('quickProgress').textContent='Procesando las imágenes y preparando el reporte. La primera ejecución puede descargar el modelo YOLO.';
+ selected=null;
+ current=null;
+ drawCases();
+ $('workspace').innerHTML='<div class="quick-top"><div><span class="quick-eyebrow"><span class="live-dot"></span> ASISTENTE DE INSPECCIÓN VISUAL</span>'+
+ '<h2>Conoce el estado visible de tu vivienda.</h2><p>Adjunta una foto exterior y, si la tienes, una interior. YOLO detectará posibles fisuras y preparará tu informe preliminar automáticamente.</p></div>'+
+ '<div class="quick-top-badge"><span>01 / 02</span><small>Fotos necesarias</small></div></div>'+
+ '<div class="quick-stepper" aria-label="Etapas del análisis"><div class="step is-current"><b>01</b><span>Subir imágenes</span></div><div class="step"><b>02</b><span>Análisis con IA</span></div><div class="step"><b>03</b><span>Informe listo</span></div></div>'+
+ '<div class="quick-main-grid"><form id="quickForm" class="quick-new-form">'+
+ '<div class="quick-section-heading"><div><h3>Fotografías de la vivienda</h3><p>Imágenes nítidas y con buena iluminación ayudan a detectar problemas visibles.</p></div><span class="quick-optional-tag">Hasta 2 fotos</span></div>'+
+ '<div class="quick-upload-grid"><label class="quick-upload-card" id="exteriorCard"><input id="exteriorFile" type="file" name="exterior" accept="image/jpeg,image/png,image/webp" required>'+
+ '<span class="upload-symbol" aria-hidden="true">＋</span><span class="upload-title">Vista exterior <em>Obligatoria</em></span><span class="upload-help">Fachada o pared exterior</span>'+
+ '<img class="upload-preview" id="exteriorPreview" alt="Vista previa de la fotografía exterior" hidden><span class="upload-file-name" id="exteriorName">Seleccionar fotografía</span></label>'+
+ '<label class="quick-upload-card" id="interiorCard"><input id="interiorFile" type="file" name="interior" accept="image/jpeg,image/png,image/webp">'+
+ '<span class="upload-symbol" aria-hidden="true">＋</span><span class="upload-title">Vista interior <em class="tag-optional">Opcional</em></span><span class="upload-help">Pared, techo o habitación</span>'+
+ '<img class="upload-preview" id="interiorPreview" alt="Vista previa de la fotografía interior" hidden><span class="upload-file-name" id="interiorName">Añadir segunda foto</span></label></div>'+
+ '<p class="upload-security">Formatos: JPG, PNG o WebP · Máximo 8 MB por foto · Tus imágenes se almacenan en el expediente.</p>'+
+ '<div class="quick-submit-area"><button class="primary quick-action-btn" type="submit" id="quickAnalyzeBtn"><span aria-hidden="true">✦</span> Analizar vivienda y generar informe</button>'+
+ '<span class="quick-action-caption">No necesitas llenar datos de materiales ni daños.</span></div>'+
+ '<div class="quick-progress" id="quickProgress" role="status" aria-live="polite" hidden><span class="progress-spinner" aria-hidden="true"></span><span id="quickProgressText"></span></div></form>'+
+ '<aside class="quick-aside"><div class="side-explainer"><span class="quick-small-label">¿QUÉ RECIBIRÁS?</span>'+
+ '<div class="side-feature"><span class="feature-icon">⌗</span><div><b>Detección visual</b><p>Posibles fisuras resaltadas en la fotografía.</p></div></div>'+
+ '<div class="side-feature"><span class="feature-icon">▤</span><div><b>Informe inmediato</b><p>Hallazgos, recomendaciones y PDF descargable.</p></div></div>'+
+ '<div class="side-feature"><span class="feature-icon">◇</span><div><b>Estimación responsable</b><p>Sin inventar precios, dimensiones ni valor comercial.</p></div></div></div>'+
+ '<div class="quick-scope"><b>Alcance del modelo</b><p>YOLO reconoce posibles fisuras. El reconocimiento de más materiales o daños necesita modelos adicionales. Una foto no demuestra seguridad estructural.</p></div></aside></div>';
+ const form=$('quickForm');
+ function updatePreview(kind){
+   const input=$(kind+'File'), card=$(kind+'Card'),preview=$(kind+'Preview'),label=$(kind+'Name'),file=input.files[0];
+   if(preview.dataset.url){URL.revokeObjectURL(preview.dataset.url);delete preview.dataset.url}
+   if(!file){preview.hidden=true;preview.removeAttribute('src');card.classList.remove('has-photo');label.textContent=kind==='exterior'?'Seleccionar fotografía':'Añadir segunda foto';return}
+   const okay=['image/jpeg','image/png','image/webp'].includes(file.type)&&file.size<=8*1024*1024&&file.size>0;
+   if(!okay){input.value='';preview.hidden=true;card.classList.remove('has-photo');label.textContent='Seleccionar fotografía';note('Solo JPG, PNG o WebP de hasta 8 MB.');return}
+   const url=URL.createObjectURL(file);preview.src=url;preview.dataset.url=url;preview.hidden=false;
+   card.classList.add('has-photo');label.textContent=file.name.length>28?file.name.slice(0,25)+'…':file.name;
+   note('');
+ }
+ ['exterior','interior'].forEach(kind=>$(kind+'File').addEventListener('change',()=>updatePreview(kind)));
+ form.onsubmit=async event=>{
+   event.preventDefault();
+   if(!$('exteriorFile').files.length){note('Adjunta una fotografía exterior para comenzar.');return}
+   const button=$('quickAnalyzeBtn'),progress=$('quickProgress'),status=$('quickProgressText');
+   button.disabled=true;button.textContent='Analizando fotografías…';progress.hidden=false;
+   status.textContent='Analizando las imágenes y generando el informe. El primer análisis puede descargar el modelo.';
+   note('');
    try{
      const response=await fetch('/api/quick-inspection',{method:'POST',body:new FormData(form),credentials:'same-origin'});
      const body=await response.json().catch(()=>({}));
-     if(!response.ok)throw Error(body.detail||'Error de análisis HTTP '+response.status);
+     if(!response.ok)throw Error(typeof body.detail==='string'?body.detail:'No fue posible completar el análisis (HTTP '+response.status+').');
      selected=body.case_id;
      renderQuickResults(body);
      window.allCases=await request('/api/cases');
      const count=$('caseCount');if(count)count.textContent=window.allCases.length+' registrados';
      drawCases();
-     note('Informe automático generado. Los resultados son preliminares.');
-   }catch(ex){
-     $('quickProgress').textContent='No se pudo completar el análisis: '+ex.message;
-     submit.disabled=false;submit.textContent='Analizar vivienda y generar informe';
+     note(body.status==='analisis_no_disponible'?'El informe se generó, pero la inferencia no estuvo disponible.':'Informe preliminar generado correctamente.');
+   }catch(error){
+     progress.hidden=false;progress.classList.add('is-error');
+     status.textContent='No se pudo completar: '+error.message;
+     button.disabled=false;button.innerHTML='<span aria-hidden="true">✦</span> Volver a analizar';
    }
  };
 }
 function renderQuickResults(result){
- const highlights=(result.issues||[]).map(x=>'<div class="quick-finding"><strong>'+escapeHTML(x.category)+'</strong><span class="pill">Por revisar</span><p>'+escapeHTML(x.description)+'</p><small>Mejora posible: '+escapeHTML(x.improvement||'Evaluación por especialista')+'</small></div>').join('')||'<p class="muted">No se encontraron fisuras sobre el umbral de confianza. Esto no significa que la vivienda esté libre de daños.</p>';
- const materials=(result.materials||[]).map(x=>'<span class="material-chip">'+escapeHTML(x.name)+'</span>').join('')||'<p class="muted">Los modelos actualmente habilitados no identificaron materiales verificables.</p>';
- const shots=(result.image_summaries||[]).map(x=>'<article class="quick-photo"><img src="'+escapeHTML(x.annotated_url||('/api/evidence/'+x.evidence_id))+'" alt="Resultado visual '+escapeHTML(x.shot)+'"><div><strong>'+escapeHTML(x.shot)+'</strong><p>'+escapeHTML(x.summary||'Sin análisis')+'</p></div></article>').join('');
- $('workspace').innerHTML='<div class="form-intro"><div><span class="form-eyebrow">Informe generado automáticamente</span><h2>Resultado de la inspección</h2><p>'+escapeHTML(result.images_analyzed)+' foto(s) analizada(s) · Evaluación preliminar sujeta a revisión humana</p></div><span class="workspace-tag">Sin formularios manuales</span></div>'+
- '<div class="quick-verdict"><small>Condición visual observada</small><strong>'+escapeHTML(result.condition)+'</strong><p>La ausencia de detecciones no certifica que una vivienda sea segura.</p></div>'+
- '<div class="quick-actions"><a class="primary" target="_blank" rel="noopener" href="/api/cases/'+encodeURIComponent(result.case_id)+'/quick-report.pdf">Descargar informe PDF</a><a class="secondary" target="_blank" rel="noopener" href="/api/cases/'+encodeURIComponent(result.case_id)+'/quick-report">Ver resultado JSON</a><button class="secondary" id="anotherQuick">Nueva evaluación</button></div>'+
- '<div class="quick-pictures">'+shots+'</div><h3>Hallazgos detectados</h3><div>'+highlights+'</div>'+
- '<h3>Materiales observados</h3><div>'+materials+'</div>'+
- '<div class="quick-quote"><h3>Presupuesto de mejoras</h3><strong>Total aún no calculable</strong><p>'+escapeHTML(result.quote?.explanation||'Se necesitan cantidades verificadas y precios documentados.')+'</p>'+
- (result.quote?.items||[]).map(x=>'<p>'+escapeHTML(x.work)+': S/ '+Number(x.unit_price_pen).toFixed(2)+'/'+escapeHTML(x.unit)+' · Fuente: '+escapeHTML(x.source)+' · Cantidad pendiente</p>').join('')+
- '<p><b>Valor comercial de la vivienda:</b> no determinado mediante fotografías. Se necesitan área, ubicación, documentos y comparables.</p></div>'+
- '<details class="quick-limits"><summary>Limitaciones del análisis</summary>'+(result.limitations||[]).map(x=>'<p>'+escapeHTML(x)+'</p>').join('')+'</details>'+
- (result.analysis_errors?.length?'<div class="vision-warning">'+result.analysis_errors.map(escapeHTML).join('; ')+'</div>':'');
+ const issues=result.issues||[], materials=result.materials||[],images=result.image_summaries||[];
+ const partial=result.status==='analisis_no_disponible';
+ const rows=issues.map(item=>'<article class="result-issue"><span class="issue-bullet">!</span><div><div class="result-issue-heading"><strong>'+escapeHTML(item.category)+'</strong><span class="result-review-state">Por verificar</span></div>'+
+ '<p>'+escapeHTML(item.description||'Observación visual preliminar')+'</p><small>Recomendación: '+escapeHTML(item.improvement||'Validar con especialista')+'</small></div></article>').join('');
+ const photos=images.map(item=>'<article class="result-photo"><img loading="lazy" src="'+escapeHTML(item.annotated_url||('/api/evidence/'+item.evidence_id))+'" alt="Análisis visual de '+escapeHTML(item.shot)+'"><div><strong>'+escapeHTML(item.shot)+'</strong><p>'+escapeHTML(item.summary||'Sin observaciones')+'</p></div></article>').join('');
+ $('workspace').innerHTML='<div class="quick-result-title"><div><span class="quick-eyebrow">INFORME DE INSPECCIÓN · PRELIMINAR</span><h2>Tu análisis visual está listo</h2><p>Evaluación automática basada en '+images.length+' fotografía(s). No sustituye una inspección profesional.</p></div><span class="quick-report-tag">'+(partial?'Inferencia no disponible':'Pendiente de revisión')+'</span></div>'+
+ '<div class="quick-stepper" aria-label="Etapas del análisis"><div class="step is-done"><b>✓</b><span>Imágenes recibidas</span></div><div class="step is-done"><b>✓</b><span>Proceso finalizado</span></div><div class="step is-current"><b>03</b><span>Consultar informe</span></div></div>'+
+ '<div class="result-status-card"><div><span class="quick-small-label">ESTADO VISUAL OBSERVADO</span><strong>'+escapeHTML(result.condition)+'</strong><p>Las conclusiones se limitan a las zonas fotografiadas.</p></div><div class="result-status-icon" aria-hidden="true">⌕</div></div>'+
+ '<div class="quick-actions"><a class="primary quick-action-btn" href="/api/cases/'+encodeURIComponent(result.case_id)+'/quick-report.pdf" target="_blank" rel="noopener">↓ Descargar informe PDF</a>'+
+ '<button class="secondary" id="anotherQuick">＋ Nueva evaluación</button><button class="secondary" id="viewAdvanced">Ver expediente</button></div>'+
+ '<div class="result-section-head"><h3>Fotografías analizadas</h3><span>'+images.length+' vista(s)</span></div><div class="result-photo-grid">'+photos+'</div>'+
+ '<div class="result-two-col"><section class="result-panel"><div class="result-section-head"><h3>Posibles hallazgos</h3><span>'+issues.length+' detectado(s)</span></div>'+
+ (rows||'<p class="result-empty">No se identificaron fisuras por encima del umbral del modelo. Esto no significa que no existan otros daños.</p>')+'</section>'+
+ '<section class="result-panel"><div class="result-section-head"><h3>Materiales visibles</h3></div>'+
+ (materials.length?materials.map(item=>'<span class="material-chip">'+escapeHTML(item.name)+'</span>').join(''):'<p class="result-empty">Materiales no verificados por el modelo actualmente disponible.</p>')+'</section></div>'+
+ '<div class="result-price-panel"><div class="result-section-head"><h3>Presupuesto y valor del inmueble</h3><span>Cálculo referencial</span></div>'+
+ '<div class="result-price-grid"><div><small>Costo total de mejoras</small><strong>Por cuantificar</strong><p>Se necesitan medidas y costos locales documentados.</p></div><div><small>Valor comercial de la vivienda</small><strong>No determinado</strong><p>Una o dos fotos no permiten una tasación comercial precisa.</p></div></div>'+
+ (result.quote?.items?.length?'<div class="quote-unit-list">'+result.quote.items.map(x=>'<p>'+escapeHTML(x.work)+': S/ '+Number(x.unit_price_pen).toFixed(2)+' / '+escapeHTML(x.unit)+' · Cantidad pendiente</p>').join('')+'</div>':'')+'</div>'+
+ (result.analysis_errors?.length?'<div class="quick-alert"><b>Advertencia:</b> '+result.analysis_errors.map(escapeHTML).join('; ')+'</div>':'')+
+ '<details class="quick-limits"><summary>Alcance y limitaciones del informe</summary>'+(result.limitations||[]).map(x=>'<p>'+escapeHTML(x)+'</p>').join('')+'</details>';
  $('anotherQuick').onclick=renderQuickStart;
+ $('viewAdvanced').onclick=async()=>{tab='general';await choose(result.case_id)};
 }
 $('quickStart').onclick=renderQuickStart;
 
