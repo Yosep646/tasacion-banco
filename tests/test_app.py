@@ -9,6 +9,15 @@ from app import app
 
 client = TestClient(app)
 
+def test_hero_asset():
+    response = client.get("/assets/hero-house.webp")
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("image/webp")
+    assert response.content.startswith(b"RIFF")
+    page = client.get("/")
+    assert page.status_code == 200
+    assert 'url("/assets/hero-house.webp")' in page.text
+
 def test_health():
     response = client.get("/health")
     assert response.status_code == 200
