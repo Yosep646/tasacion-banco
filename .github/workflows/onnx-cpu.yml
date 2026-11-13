@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - 'yolo_onnx.py'
+      - 'tests/smoke_real_yolo_api.py'
       - '.github/workflows/onnx-cpu.yml'
 permissions:
   contents: read
