@@ -110,7 +110,7 @@ def test_economic_scenario_is_documented_and_not_inferred(monkeypatch):
     assert "no constituye" in result["disclaimer"].lower()
     import pytest
     with pytest.raises(ValueError):
-        estimate_property_scenario(80,1500,"sin fuente")
+        estimate_property_scenario(80,1500,"no")
     with pytest.raises(ValueError):
         estimate_property_scenario(80,1500,"Comparables documentados",land_area_m2=30)
 
