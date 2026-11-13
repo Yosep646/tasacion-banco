@@ -12,6 +12,8 @@ from contextlib import contextmanager
 from yolo_service import predict_findings, get_model_configuration
 from vision_service import analyze_photo, evaluate_condition, guided_shots, simulate_credit
 from yolo_onnx import predict_cracks
+from yolo_defects import detect_defects
+from inspection_taxonomy import public_capabilities, improvement_for
 from rapid_service import summarize
 from starlette.concurrency import run_in_threadpool
 
@@ -184,7 +186,12 @@ class ReviewIn(BaseModel):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "tasacion-visual", "models": {"vivienda_fisuras": bool(os.getenv("YOLO_VIVIENDA_WEIGHTS")), "generico": bool(os.getenv("YOLO_WEIGHTS"))}, "vision_enabled": bool(os.getenv("OPENAI_API_KEY")), "yolo_cpu_enabled": os.getenv("YOLO_CPU_ENABLED") == "1"}
+    return {"status": "ok", "service": "tasacion-visual", "models": {"vivienda_fisuras": bool(os.getenv("YOLO_VIVIENDA_WEIGHTS")), "generico": bool(os.getenv("YOLO_WEIGHTS"))}, "vision_enabled": bool(os.getenv("OPENAI_API_KEY")), "yolo_cpu_enabled": os.getenv("YOLO_CPU_ENABLED") == "1", "multiclass_yolo_enabled": os.getenv("YOLO_DEFECT5_ENABLED") == "1"}
+
+@app.get("/api/model-capabilities")
+def model_capabilities(req: Request):
+    auth(req)
+    return public_capabilities(os.getenv("YOLO_DEFECT5_ENABLED") == "1")
 
 @app.get("/assets/hero-house.webp")
 def hero_house_asset():
@@ -415,10 +422,66 @@ async def quick_inspection(req: Request, exterior: UploadFile = File(...),
                 error = "El proveedor multimodal no respondió correctamente"
         if can_yolo:
             try:
-                cracks, annotated = await run_in_threadpool(predict_cracks,str(image_path))
+                if os.getenv("YOLO_DEFECT5_ENABLED") == "1":
+                    defects, annotated = await run_in_threadpool(detect_defects, str(image_path))
+                    method = "yolo26_defect5"
+                else:
+                    defects, annotated = await run_in_threadpool(predict_cracks, str(image_path))
+                    method = "yolo_cpu_onnx"
                 if annotated is not None:
-                    annotated.save(UPLOADS / (photo["id"] + "-yolo.jpg"),format="JPEG",quality=85)
+                    annotated.save(UPLOADS / (photo["id"]+"-yolo.jpg"),format="JPEG",quality=85)
                 if result is None:
+                    result={
+                        "condition":"requiere_mejoras" if defects else "no_determinable",
+                        "summary":("Se identificaron "+str(len(defects))+" posible(s) anomalía(s) visible(s) que requieren revisión."
+                                   if defects else "No se detectaron anomalías sobre el umbral. Esto NO acredita que la vivienda esté en buen estado."),
+                        "materials":[], "issues":[], "limitations":[],
+                        "method":method,
+                    }
+                for defect in defects:
+                    result["issues"].append({
+                        "category":defect["category"],
+                        "severity":"no_determinada",
+                        "description":defect["description"]+" (confianza "+str(round(defect["confidence"]*100))+"%)",
+                        "improvement":improvement_for(defect["category"]),
+                        "confidence":defect["confidence"],
+                        "box":defect["box"],
+                        "origin":method,
+                    })
+                if defects:
+                    result["condition"]="requiere_mejoras"
+                if method == "yolo_cpu_onnx":
+                    result["limitations"].append("Detector YOLO actual: solo posibles fisuras, no otros daños ni materiales.")
+                else:
+                    result["limitations"].append(
+                        "YOLO de cinco defectos: fisuras, grietas escalonadas, moho, pintura desprendida y manchas de filtración. "
+                        "El modelo tiene bajo desempeño publicado en pintura/humedad; confirmar siempre.")
+                result["yolo_detections"]=len(defects)
+                result["annotated_url"]="/api/evidence/"+photo["id"]+"/yolo-overlay"
+                if result["method"]=="multimodal_visual":
+                    result["method"]="multimodal_visual+"+method
+            except (OSError,ValueError,RuntimeError,ImportError,IndexError,TypeError) as exc:
+                error=(error+"; " if error else "")+"No fue posible ejecutar YOLO multiclase"
+                # If the extended model cannot load, try the already tested crack model.
+                if os.getenv("YOLO_DEFECT5_ENABLED")=="1":
+                    try:
+                        cracks, annotated=await run_in_threadpool(predict_cracks,str(image_path))
+                        annotated.save(UPLOADS/(photo["id"]+"-yolo.jpg"),format="JPEG",quality=85)
+                        if result is None:
+                            result={"condition":"requiere_mejoras" if cracks else "no_determinable",
+                                "summary":"Se utilizó el detector de respaldo de fisuras.",
+                                "materials":[],"issues":[],"limitations":[],"method":"yolo_cpu_onnx_fallback"}
+                        result["issues"].extend([{
+                            "category":c["category"],"severity":"no_determinada",
+                            "description":c["description"],"improvement":improvement_for(c["category"]),
+                            "confidence":c["confidence"],"box":c["box"],"origin":"yolo_cpu_onnx_fallback",
+                        } for c in cracks])
+                        if cracks:result["condition"]="requiere_mejoras"
+                        result["annotated_url"]="/api/evidence/"+photo["id"]+"/yolo-overlay"
+                        result["limitations"].append("Modelo multiclase no disponible: se aplicó solo detector de fisuras.")
+                    except (OSError,ValueError,RuntimeError,ImportError):
+                        pass
+        if result is None:
                     result = {
                         "condition":"requiere_mejoras" if cracks else "no_determinable",
                         "summary":("YOLO detectó "+str(len(cracks))+" posible(s) fisura(s)." if cracks
