@@ -34,7 +34,9 @@ def summarize(assessments, photo_count, provider_available):
                     "evidence_id":a["evidence_id"],
                     "confidence":issue.get("confidence")
                 })
-        notes.append({"shot":a["shot"],"summary":result.get("summary",""),\n                      "evidence_id":a["evidence_id"],\n                      "annotated_url":result.get("annotated_url")})
+        notes.append({"shot":a["shot"],"summary":result.get("summary",""),
+                      "evidence_id":a["evidence_id"],
+                      "annotated_url":result.get("annotated_url")})
         if a.get("error"):
             errors.append(a["error"])
     if issues:
