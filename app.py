@@ -581,6 +581,17 @@ def quick_report_pdf(case_id: str, req: Request):
     draw("Métodos: "+", ".join(report["models"]))
     for item in report["image_summaries"]:
         draw(item["shot"]+": "+str(item["summary"]))
+    draw("PLAN DE MEJORAS E INSPECCIONES",True)
+    if not report.get("improvements"):
+        draw("Sin intervenciones confirmadas; revisar otros ambientes.")
+    for item in report.get("improvements",[]):
+        draw(item["shot"]+" | "+item["label"]+" | prioridad "+item["priority"])
+        draw(item["action"])
+        draw(item["before_quoting"])
+    draw("No se verificaron metrados ni causas estructurales.")
+    draw("CATEGORÍAS NO EVALUADAS POR EL MODELO",True)
+    for category in report.get("capabilities",{}).get("training_required",[]):
+        draw(category)
     draw("MATERIALES OBSERVADOS",True)
     if not report["materials"]:
         draw("No identificables con los modelos disponibles")
