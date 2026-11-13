@@ -71,3 +71,18 @@ El servicio gratuito existente usa `requirements.txt` y se despliega al actualiz
 ## Principios de seguridad
 
 Todos los resultados de IA son observaciones preliminares. No asumir que ausencia de fisuras visibles indica seguridad. Para tomar decisiones crediticias hacen falta peritaje cuando corresponda, evidencias verificadas, identificación y valoración de garantías, evaluación de capacidad de pago, consentimiento y revisión de un responsable humano.
+
+
+## YOLO real en Render Free: detección automática de fisuras
+
+Se implementó un modelo de segmentación **YOLOv8n especializado en fisuras** (OpenSistemas), exportado a ONNX para evitar PyTorch en la instancia Free. El repositorio dispone de:
+
+- `yolo_onnx.py`: motor CPU ONNX Runtime, descarga de modelo de Release con SHA-256, detección de posibles fisuras, supresión de cajas repetidas y anotación de regiones sobre la fotografía.
+- `POST /api/cases/{case_id}/automatic-inspection/{evidence_id}`: corre YOLO en la foto y guarda el resultado como propuesta pendiente de revisión.
+- `GET /api/evidence/{evidence_id}/yolo-overlay`: devuelve la imagen con regiones señaladas, protegida por autenticación.
+- En **Inspección visual**, carga una foto y pulsa **Detectar fisuras con YOLO**; el botón está habilitado si `YOLO_CPU_ENABLED=1`. Cuando no hay grietas detectadas el estado es **no determinable**, jamás "vivienda segura".
+- GitHub Actions: `publish-onnx.yml` exporta el modelo original con su checksum y lo publica en el Release `v0.1-crack-onnx`; `onnx-cpu.yml` descarga el modelo y valida inferencia real en CPU, incluida al menos una detección en una imagen sintética. En producción, el modelo se descarga al primer análisis y se almacena en `/tmp/tasacion-models`.
+
+**Límite esencial:** el modelo ONNX detecta *posibles fisuras*, no valida seguridad estructural ni reconoce automáticamente ladrillo, techo de calamina, concreto o tarrajeo. Para materiales y deterioros adicionales se necesitan modelos entrenados y validados con imágenes representativas, o conectar visión multimodal. La revisión manual no sustituye una prueba de IA, y un score de un único tipo de anomalía no es una tasación pericial. No usar las predicciones para aprobar préstamos.
+
+Este backend usa `onnxruntime` (CPU) y `numpy` en `requirements.txt`, sin requerir cuenta de API para el detector especializado. Render Free tiene recursos limitados: la primera inferencia puede tardar, y las descargas se repiten tras reinicios del contenedor al no tener disco persistente. Revisa la licencia **AGPL-3.0** del modelo.
