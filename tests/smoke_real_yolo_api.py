@@ -2,7 +2,9 @@
 import io
 import os
 import tempfile
+import sys
 from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 os.environ["APP_ENV"]="development"
 os.environ["TASACION_ADMIN_PASSWORD"]="ci-only-test-password-not-for-production"
