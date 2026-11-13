@@ -1,0 +1,29 @@
+name: YOLO real inference smoke test
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'yolo_service.py'
+      - 'scripts/download_fisuras.py'
+      - 'scripts/smoke_yolo.py'
+      - '.github/workflows/yolo-smoke.yml'
+jobs:
+  segmentation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install CPU inference dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install --index-url https://download.pytorch.org/whl/cpu torch torchvision
+          pip install -r requirements-yolo.txt
+      - name: Download and SHA256 verify model
+        run: python scripts/download_fisuras.py
+      - name: Actual segmentation inference
+        env:
+          YOLO_VIVIENDA_WEIGHTS: weights/vivienda-fisuras.pt
+        run: python scripts/smoke_yolo.py
