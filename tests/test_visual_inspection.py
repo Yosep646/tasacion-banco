@@ -107,3 +107,48 @@ def test_visual_guided_end_to_end(monkeypatch):
     assert credit.json()["suggested_amount"]==14000
     assert credit.json()["status"]=="simulacion_no_vinculante"
     assert client.get("/api/cases/"+cid+"/report.json").json()["visual_condition"]["condition_score"]==88
+
+
+def test_one_photo_manual_review_produces_provisional_score():
+    client=TestClient(app)
+    assert client.post("/api/login",json={"username":"administrador",
+                  "password":"strong-test-password"}).status_code==200
+    case=client.post("/api/cases",json={"asset_type":"vivienda",
+                 "title":"Evaluación con una foto"}).json()
+    cid=case["id"]
+    upload=client.post("/api/cases/"+cid+"/evidence",data={"shot":"Fachada"},
+        files={"file":("fachada.jpg",make_photo(),"image/jpeg")})
+    assert upload.status_code==201
+    eid=upload.json()["id"]
+    r=client.post("/api/cases/"+cid+"/manual-inspection/"+eid,json={
+        "condition":"requiere_mejoras","category":"Fisura visible","severity":"moderada",
+        "description":"Se observa una grieta sobre el revestimiento",
+        "improvement":"Solicitar inspección profesional","material":"Pared revocada",
+        "notes":"Observación aportada por el revisor"})
+    assert r.status_code==200,r.text
+    assert r.json()["result"]["method"]=="manual_review"
+    score=client.get("/api/cases/"+cid).json()["visual_condition"]
+    assert score["captured"]==1
+    assert score["condition_score"]==88
+    assert score["score_status"]=="provisional_parcial"
+    assert score["credit_ready"] is False
+    r=client.post("/api/cases/"+cid+"/credit-simulation",json={
+        "documented_budget":1000,"budget_source":"Presupuesto documentado"})
+    assert r.json()["suggested_amount"] is None
+
+
+def test_repeated_manual_review_uses_most_recent():
+    client=TestClient(app)
+    client.post("/api/login",json={"username":"administrador",
+                "password":"strong-test-password"})
+    case=client.post("/api/cases",json={"asset_type":"vivienda",
+                "title":"Revisión modificada"}).json()
+    cid=case["id"]
+    eid=client.post("/api/cases/"+cid+"/evidence",data={"shot":"Fachada"},
+        files={"file":("fachada.jpg",make_photo(),"image/jpeg")}).json()["id"]
+    url="/api/cases/"+cid+"/manual-inspection/"+eid
+    assert client.post(url,json={"condition":"requiere_mejoras",
+      "category":"Fisura visible","severity":"severa"}).status_code==200
+    assert client.post(url,json={"condition":"aparentemente_bueno"}).status_code==200
+    result=client.get("/api/cases/"+cid).json()["visual_condition"]
+    assert result["condition_score"]==100
