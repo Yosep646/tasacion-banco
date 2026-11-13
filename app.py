@@ -14,6 +14,7 @@ from vision_service import analyze_photo, evaluate_condition, guided_shots, simu
 from yolo_onnx import predict_cracks
 from yolo_defects import detect_defects
 from inspection_taxonomy import public_capabilities, improvement_for
+from valuation_reference import estimate_property_scenario
 from rapid_service import summarize
 from starlette.concurrency import run_in_threadpool
 
@@ -151,6 +152,14 @@ class ManualVisualObservation(BaseModel):
     improvement: str = Field(default="", max_length=300)
     material: str = Field(default="", max_length=100)
     notes: str = Field(default="", max_length=350)
+
+class PropertyScenario(BaseModel):
+    built_area_m2: float = Field(gt=0, le=100000)
+    construction_unit_pen_m2: float = Field(gt=0, le=100000)
+    source: str = Field(min_length=8,max_length=500)
+    land_area_m2: float = Field(default=0,ge=0,le=100000)
+    land_unit_pen_m2: float = Field(default=0,ge=0,le=1000000)
+    land_source: str = Field(default="",max_length=500)
 
 class CreditSimulation(BaseModel):
     documented_budget: float = Field(gt=0, le=1e10)
@@ -520,6 +529,29 @@ def quick_report(case_id: str, req: Request):
     return _get_rapid_report(case_id,req)
 
 
+@app.post("/api/cases/{case_id}/valuation-scenario")
+def valuation_scenario(case_id: str, data: PropertyScenario, req: Request):
+    actor=auth(req,write=True,review=True)
+    require_case(case_id)
+    with db() as con:
+        report=con.execute("SELECT result_json FROM rapid_reports WHERE case_id=?",(case_id,)).fetchone()
+    if not report:
+        raise HTTPException(404,"Primero ejecuta una inspección rápida")
+    try:
+        result=estimate_property_scenario(
+            data.built_area_m2,data.construction_unit_pen_m2,data.source,
+            data.land_area_m2,data.land_unit_pen_m2,data.land_source)
+    except ValueError as exc:
+        raise HTTPException(422,str(exc)) from exc
+    stored=json.loads(report["result_json"])
+    stored["documented_valuation_scenario"]=result
+    with db() as con:
+        con.execute("UPDATE rapid_reports SET result_json=? WHERE case_id=?",
+                    (json.dumps(stored,ensure_ascii=False),case_id))
+    log(actor,"registrar_escenario_valor_referencial",case_id)
+    return result
+
+
 @app.get("/api/cases/{case_id}/quick-report.pdf")
 def quick_report_pdf(case_id: str, req: Request):
     from reportlab.lib.pagesizes import A4
@@ -566,6 +598,17 @@ def quick_report_pdf(case_id: str, req: Request):
         draw(item["work"]+": S/ "+str(item["unit_price_pen"])+"/"+item["unit"]+"; falta metrado.")
     draw("Total: pendiente de cuantificación. Valor comercial: no estimado.")
     draw(report["property_market_value_reason"])
+    scenario=report.get("documented_valuation_scenario")
+    if scenario:
+        draw("ESCENARIO MONETARIO CON FUENTES DOCUMENTADAS",True)
+        draw("Construcción: S/ "+str(scenario["construction_value_pen"]))
+        draw("Terreno: S/ "+str(scenario["land_value_pen"]))
+        draw("Total aritmético referencial: S/ "+str(scenario["indicative_total_pen"]))
+        draw("Fuente construcción: "+scenario["construction_source"])
+        if scenario["land_source"]:
+            draw("Fuente terreno: "+scenario["land_source"])
+        draw("No es una tasación comercial ni una garantía aprobada.")
+
     draw("LIMITACIONES Y VALIDACIÓN",True)
     for line in report["limitations"]:
         draw(line)
