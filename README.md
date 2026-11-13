@@ -1,5 +1,36 @@
 # Tasación Visual Rápida — Asistente para microcrédito hipotecario o prendario
 
+## Inspección multiclase y tasación — actualización 2026-11-13
+
+La aplicación ahora dispone de dos detectores ONNX para CPU:
+
+- **YOLOv8n fisuras** (OpenSistemas), verificado con inferencia real, respaldo automático.
+- **YOLO26n defectos de construcción** (IAAC MaAI, licencia AGPL-3.0), exportado a ONNX y probado con inferencia CPU real: `crack`, `stairstep_crack`, `mold`, `peeling_paint`, `water_seepage`. Se habilita mediante `YOLO_DEFECT5_ENABLED=1` y requiere `YOLO_CPU_ENABLED=1`. Pesos ONNX en GitHub Release `v0.2-defect5-onnx`, con verificación de checksum antes de cargarlos. [Tarjeta y métricas originales](https://huggingface.co/iaac-maai/day4-team1-building-defect-detector).
+
+**Precisión publicada por el autor (AP50, conjunto de prueba):** fisura 0,93; grieta escalonada 0,77; moho 0,29; filtración 0,28; pintura desprendida 0,05. Son cifras del conjunto del autor, **no** de viviendas peruanas ni de esta integración. Las categorías de superficies pueden fallar con frecuencia; los resultados son **candidatos** y requieren revisión humana.
+
+### Qué puede y qué no puede detectar
+
+| Elemento | Estado |
+|---|---|
+| Fisuras y grietas escalonadas | Modelo multiclase disponible; requiere validación local |
+| Posible moho, pintura desprendida y manchas de filtración | Disponible como alerta de baja confianza validada por persona |
+| Pintura general deteriorada, pisos rotos y baldosas fracturadas | Clases definidas, **sin modelo entrenado** |
+| Puertas visibles o huecos sin puerta | Pendiente de dataset, entrenamiento y pruebas; jamás inferir ausencia por falta de detección |
+| Paredes tarrajeadas/sin tarrajear, ladrillo visto, techos de calamina/concreto | Pendiente de entrenamiento de materiales y acabados |
+| Diagnóstico de seguridad estructural y daños ocultos | No deducible de una o dos fotografías |
+
+`scripts/train_missing_categories.py` prepara el entrenamiento cuando se disponga de fotografías etiquetadas, permiso de uso, particiones independientes y control de calidad. El script **no implica que esas clases ya se reconozcan**.
+
+### Plan de mejoras y estimación económica
+
+Tras subir 1–2 fotos, el informe muestra detecciones, localización por vista, confianza, prioridad de inspección y **plan de mejoras sugeridas**. La cotización automática muestra partidas/precios unitarios únicamente si existe un catálogo verificado (`TASACION_PRICE_CATALOG`) con fuente. No se inventan metros lineales/cuadrados a partir de una fotografía.
+
+Para obtener una cantidad en soles, el panel ofrece **escenario monetario documentado** (no avalúo comercial) a partir de área construida real, costo/valor unitario de referencia y fuente documentada (con opción de incluir terreno). El cálculo y fuente se guardan en el PDF y en el JSON del expediente. En Perú pueden consultarse los [valores unitarios oficiales de edificación para 2026 del MVCS](https://www.gob.pe/institucion/vivienda/normas-legales/7568068-015-2025-vivienda-vmvu-dgprvu), pero debe seleccionarse la región y las partidas efectivamente aplicables.
+
+**No equivale a tasación hipotecaria, costo exacto de rehabilitación ni aprobación de crédito**. Para una tasación válida faltan metraje certificado, ubicación verificada, documentación, condiciones estructurales, antigüedad, depreciación y comparables de mercado.
+
+
 > **Objetivo académico:** ayudar a documentar el estado visible de viviendas, mototaxis, maquinaria, vehículos y terrenos mediante fotografías guiadas y facilitar una evaluación referencial de mejoras. No emite certificaciones estructurales ni aprueba créditos.
 
 ## Flujo del reto
