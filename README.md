@@ -1,3 +1,38 @@
+## Verificación integral y visión multimodal segura — 14 noviembre 2026
+
+### Prueba de fotografías reales (CI, no producción autenticada)
+
+El flujo `.github/workflows/real-photo-e2e.yml` ejecuta
+`python -m scripts.production_photo_smoke` en una base de datos SQLite
+temporal, con usuario y contraseña efímeros y dos fotografías públicas
+reales con licencia de uso (Wikimedia Commons CC0 / Pexels).
+Comprueba inicio de sesión, carga exterior/interior, inferencia ONNX real
+de SegFormer, almacenamiento, generación de JPEG/PNG, expediente e informe PDF.
+Los datos se eliminan al cerrar el test; no se utilizan expedientes existentes.
+
+Una prueba aprobada en GitHub Actions NO implica que la inferencia con
+fotografías de usuarios en la URL de Render haya sido probada. La calidad
+de los segmentos necesita revisión para viviendas reales de Perú.
+
+### GPT-4.1 mini: conexión segura y verificación explícita
+
+- La integración usa `OPENAI_API_KEY` como variable de entorno privada en
+  Render y `VISION_MODEL=gpt-4.1-mini` (valor por defecto).
+- El endpoint autenticado `GET /api/model-readiness` indica
+  `multimodal_vision.state=awaiting_rotated_secret` sin clave o
+  `configured_unverified` cuando existe una clave. Tenerla configurada
+  NO demuestra que funcione ni que tenga saldo.
+- Solo un administrador puede pulsar «Verificar conexión GPT» (o llamar
+  `POST /api/multimodal-selftest` con sesión). Envía una imagen de prueba
+  sintética, no fotografías privadas, y comprueba una respuesta de la API.
+  Esta acción es optativa, puede generar cargos y nunca se ejecuta en
+  health checks, en segundo plano ni durante los despliegues.
+- Nunca introducir claves en GitHub, en el frontend ni enviarlas por chat.
+  Revocar inmediatamente cualquier clave divulgada y crear una nueva en
+  https://platform.openai.com/api-keys . Añadirla **solo** como variable
+  secreta de Render. La contraseña y el valor de la clave nunca aparecen
+  en los informes ni en el resultado del autodiagnóstico.
+
 ## Segmentación semántica de paredes, pisos y techos (14/11/2026)
 
 Se añadió `surface_segmentation.py` usando **SegFormer-B0 ADE20K (ONNX cuantizado, CPU)**, de [Xenova/segformer-b0-finetuned-ade-512-512](https://huggingface.co/Xenova/segformer-b0-finetuned-ade-512-512). Se valida la integridad de los pesos contra el SHA-256 publicado por Hugging Face, antes de utilizarlos. El modelo ocupa aproximadamente 4,42 MB; requiere acceso de salida a Hugging Face en la primera carga (y tras reinicios sin disco persistente). No necesita `OPENAI_API_KEY`, PyTorch ni transferencia de imágenes a proveedores externos.
