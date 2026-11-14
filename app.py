@@ -1042,13 +1042,40 @@ def report_pdf(case_id: str, req: Request):
              "Expediente: " + case["id"], "Activo: " + case["asset_type"],
              "Descripcion: " + case["title"][:90],
              "Ubicacion: " + case["location"][:90],
-             "Valor base: S/ " + format(case["base_value"],",.2f"),
-             "Valor estimado: S/ " + format(case["estimated_value"],",.2f"),
+             "Valor base ingresado por usuario: " + ("S/ " + format(case["base_value"],",.2f") if case["base_value"] > 0 else "No determinado"),
+             "Estimacion manual condicionada: " + ("S/ " + format(case["estimated_value"],",.2f") if case["base_value"] > 0 else "No determinada"),
              "Estado: " + case["valuation_status"],
              "Fuente: " + case["source"][:100], "",
              "HALLAZGOS"]
     for f in case["findings"]:
         lines.append((f["category"] + " | " + f["severity"] + " | " + f["state"] + " | Ajuste S/ " + str(f["adjustment"]))[:105])
+    quick = case.get("quick_report")
+    if quick:
+        lines += ["", "EVALUACION RAPIDA AUTOMATICA (YOLO, NO PERITAJE)",
+                  "Fotos analizadas: " + str(quick.get("images_analyzed",0)),
+                  "Estado visual: " + str(quick.get("condition","No determinable")),
+                  "Posibles hallazgos: " + str(len(quick.get("issues",[])))]
+        for item in quick.get("improvements",[])[:30]:
+            lines.append(("Mejora propuesta: " + str(item.get("action","")))[:105])
+        repair = quick.get("automatic_repair_scenario") or build_automatic_quote(quick.get("issues",[]))
+        if repair.get("illustrative_min_pen") is not None:
+            lines.append("Reparaciones, ejemplo NO medido: S/ " +
+                         str(repair["illustrative_min_pen"]) + " a S/ " +
+                         str(repair["illustrative_max_pen"]))
+        else:
+            lines.append("Reparaciones: sin rango cuantificable con la evidencia.")
+        reference = quick.get("official_construction_reference")
+        if reference:
+            lines += ["Referencia de edificacion por datos declarados: S/ "+
+                      str(reference["construction_reference_pen"]),
+                      "No incluye terreno ni depreciacion; NO es valor comercial."]
+        else:
+            example = quick.get("illustrative_construction_example") or reference_scenario(60,"sierra","D",illustrative=True)
+            lines += ["EJEMPLO HIPOTETICO (no valor de esta casa): S/ "+
+                      str(example["construction_reference_pen"]),
+                      "Supuesto de ejemplo: Sierra, 60 m2, categoria D."]
+        lines += ["Pendiente: area real, comparables, estado estructural, terreno y revision."]
+
     visual = case["visual_condition"]
     lines += ["", "INSPECCION VISUAL (NO ESTRUCTURAL)",
               "Cobertura fotografica: " + str(visual["coverage"]) + "%",
