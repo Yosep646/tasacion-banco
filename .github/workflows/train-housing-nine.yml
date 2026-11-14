@@ -23,37 +23,43 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install --index-url https://download.pytorch.org/whl/cpu torch torchvision
           python -m pip install "ultralytics>=8.4,<9" "pyyaml>=6,<7" "Pillow>=10,<13"
-      - name: Retrieve user-authorized labeled dataset
+      - name: Retrieve private, authorized training data
         env:
-          GH_TOKEN: ${{ github.token }}
+          TRAINING_DATA_URL: ${{ secrets.TRAINING_DATA_URL }}
+          TRAINING_DATA_SHA256: ${{ secrets.TRAINING_DATA_SHA256 }}
         run: |
-          mkdir -p /tmp/housing-labels
-          if ! gh release view housing-training-data-v1 >/dev/null 2>&1; then
-            echo "::error::No verified labeled training data release: housing-training-data-v1. This is NOT a model training success."
-            exit 1
-          fi
-          gh release download housing-training-data-v1 --pattern 'housing-dataset.zip' --dir /tmp/housing-labels
           python - <<'PY'
-          from pathlib import Path
-          import zipfile
-          root=Path('.').resolve()
-          path=Path('/tmp/housing-labels/housing-dataset.zip')
-          if path.stat().st_size > 6 * 1024**3:
-              raise SystemExit('Training archive is too large')
-          with zipfile.ZipFile(path) as archive:
+          import hashlib, os, pathlib, urllib.request, zipfile
+          from urllib.parse import urlparse
+          url=os.environ.get("TRAINING_DATA_URL","")
+          expected=os.environ.get("TRAINING_DATA_SHA256","").lower()
+          if not url.startswith("https://") or len(expected)!=64:
+              raise SystemExit("Missing private TRAINING_DATA_URL or TRAINING_DATA_SHA256 secrets. No training data supplied.")
+          if any(x not in "0123456789abcdef" for x in expected):
+              raise SystemExit("Invalid SHA256")
+          archive=pathlib.Path("/tmp/housing-dataset.zip")
+          digest=hashlib.sha256()
+          size=0
+          req=urllib.request.Request(url,headers={"User-Agent":"tasacion-training"})
+          with urllib.request.urlopen(req,timeout=90) as source,archive.open("wb") as out:
+              while chunk:=source.read(1024*1024):
+                  size+=len(chunk)
+                  if size>6*1024**3:raise SystemExit("Training archive exceeds 6 GB")
+                  out.write(chunk);digest.update(chunk)
+          if digest.hexdigest()!=expected:raise SystemExit("Dataset hash mismatch, no extraction")
+          root=pathlib.Path(".").resolve()
+          with zipfile.ZipFile(archive) as z:
               total=0
-              for member in archive.infolist():
-                  target=(root/member.filename).resolve()
-                  if not target.is_relative_to(root):
-                      raise SystemExit('Unsafe path in training zip')
-                  if not member.filename.startswith('datasets/raw/'):
-                      raise SystemExit('Training zip may only contain datasets/raw/')
-                  total += member.file_size
-                  if total > 10 * 1024**3:
-                      raise SystemExit('Training files exceed extraction quota')
-                  if (member.external_attr >> 16) & 0o170000 == 0o120000:
-                      raise SystemExit('Symlinks are not permitted')
-              archive.extractall(root)
+              for member in z.infolist():
+                  dest=(root/member.filename).resolve()
+                  if not dest.is_relative_to(root) or not member.filename.startswith("datasets/raw/"):
+                      raise SystemExit("Unsafe or unexpected dataset path")
+                  total+=member.file_size
+                  if total>10*1024**3:raise SystemExit("Extracted data exceeds 10 GB")
+                  if (member.external_attr>>16)&0o170000==0o120000:
+                      raise SystemExit("Symlinks are forbidden")
+              z.extractall(root)
+          print("Private dataset checksum verified and unpacked; image labels remain untrusted until validated")
           PY
       - name: Validate license, class labels and train/test isolation
         run: python scripts/prepare_housing_dataset.py --registry datasets/sources.json --base . --output datasets/prepared --min-train-boxes 15
