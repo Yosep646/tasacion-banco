@@ -421,6 +421,71 @@ def analyze(case_id: str, evidence_id: str, req: Request):
     return {"detections": new_count, "profile": model_config["profile"], "warning": "Detecciones pendientes; no generan descuento automático. Las fisuras son observaciones visuales, no diagnósticos estructurales."}
 
 
+def _sync_quick_findings(con, case_id: str, summary: dict) -> int:
+    """Materialize AI suggestions as pending findings without assigning severity.
+
+    A maximum of one finding per image/category is created; repeated use is
+    idempotent. Manual findings and reviewer decisions are NEVER overwritten.
+    """
+    candidates = {}
+    for item in summary.get("issues", []):
+        if not isinstance(item, dict):
+            continue
+        eid = str(item.get("evidence_id", ""))
+        category = str(item.get("category", ""))[:120].strip()
+        if not eid or not category:
+            continue
+        confidence = item.get("confidence")
+        if isinstance(confidence, bool):
+            confidence = None
+        try:
+            confidence = float(confidence) if confidence is not None else None
+            if confidence is not None and (not 0 <= confidence <= 1):
+                confidence = None
+        except (ValueError, TypeError):
+            confidence = None
+        key = (eid, category)
+        current = candidates.get(key)
+        if current is None or (confidence if confidence is not None else -1) > current[0]:
+            candidates[key] = (confidence if confidence is not None else -1, item)
+    added = 0
+    for (eid, category), (confidence, item) in candidates.items():
+        if not con.execute("SELECT 1 FROM evidence WHERE id=? AND case_id=?", (eid, case_id)).fetchone():
+            continue
+        existing = con.execute(
+            "SELECT 1 FROM findings WHERE case_id=? AND evidence_id=? AND category=? "
+            "AND origin='quick_ai' LIMIT 1", (case_id, eid, category)
+        ).fetchone()
+        if existing:
+            continue
+        # No severity, deduction or monetary adjustment can be inferred from a box.
+        con.execute(
+            "INSERT INTO findings(id,case_id,evidence_id,category,severity,confidence,"
+            "origin,state,description,adjustment,justification,created_at)"
+            " VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+            (str(uuid.uuid4()),case_id,eid,category,"no_determinada",
+             None if confidence < 0 else confidence,"quick_ai","pendiente",
+             str(item.get("description",""))[:2000],0,"",now()))
+        added += 1
+    return added
+
+
+@app.post("/api/cases/{case_id}/sync-quick-report")
+def sync_quick_report(case_id: str, req: Request):
+    actor = auth(req, write=True)
+    require_case(case_id)
+    with db() as con:
+        row = con.execute(
+            "SELECT result_json FROM rapid_reports WHERE case_id=?", (case_id,)
+        ).fetchone()
+        if not row:
+            raise HTTPException(404,"Este expediente no tiene evaluación rápida")
+        count = _sync_quick_findings(con, case_id, json.loads(row["result_json"]))
+    if count:
+        log(actor,"sincronizar_hallazgos_automaticos",case_id)
+    return {"created":count,"case_id":case_id,"status":"pendiente_de_revision"}
+
+
 async def _save_quick_photo(case_id: str, file: UploadFile, shot: str, actor: str):
     if file.content_type not in ("image/jpeg", "image/png", "image/webp"):
         raise HTTPException(415, "Se requiere una fotografía JPG, PNG o WebP")
@@ -608,6 +673,7 @@ async def quick_inspection(req: Request, exterior: UploadFile = File(...),
     with db() as con:
         con.execute("INSERT INTO rapid_reports VALUES(?,?,?)",
                     (case_id,json.dumps(summary,ensure_ascii=False),now()))
+        _sync_quick_findings(con,case_id,summary)
     log(actor,"generar_informe_rapido",case_id)
     return summary
 
