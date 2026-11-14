@@ -189,7 +189,53 @@ def analyze_photo(image_path, shot, asset_type):
         with urllib.request.urlopen(req, timeout=50) as response:
             result = json.load(response)
     except urllib.error.HTTPError as exc:
-        raise _classify_provider_error(exc) from None
+        # Some providers / project configurations reject optional Responses
+        # formatting. On HTTP 400 only, retry once with the documented
+        # Chat Completions image schema; never retry authentication/quota errors.
+        if exc.code != 400:
+            raise _classify_provider_error(exc) from None
+        initial_error = _classify_provider_error(exc)
+        chat_body = {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": [
+                    {"type": "text", "text": prompt},
+                    {"type": "image_url", "image_url": {
+                        "url": "data:image/jpeg;base64,"+
+                        base64.b64encode(raw).decode("ascii"),
+                        "detail": "low",
+                    }},
+                ]},
+            ],
+            "max_tokens": 1200,
+            "response_format": {"type": "json_object"},
+        }
+        chat_request = urllib.request.Request(
+            "https://api.openai.com/v1/chat/completions",
+            data=json.dumps(chat_body).encode("utf-8"),
+            headers={"Authorization": "Bearer "+key, "Content-Type":"application/json"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(chat_request, timeout=50) as response:
+                chat_response = json.load(response)
+        except urllib.error.HTTPError as chat_exc:
+            raise _classify_provider_error(chat_exc) from None
+        except (urllib.error.URLError, TimeoutError):
+            raise VisionProviderError(
+                "connection_failed",
+                "No se pudo conectar con OpenAI. Verifica conectividad y vuelve a intentarlo.",
+            ) from None
+        try:
+            choices = chat_response["choices"]
+            text = choices[0]["message"]["content"]
+            return normalize_vision(json.loads(text))
+        except (KeyError, IndexError, TypeError, ValueError):
+            raise VisionProviderError(
+                "invalid_provider_response",
+                "OpenAI no devolvió el JSON esperado en el endpoint alternativo.",
+            ) from None
     except (urllib.error.URLError, TimeoutError) as exc:
         raise VisionProviderError(
             "connection_failed",
