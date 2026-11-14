@@ -573,6 +573,143 @@ async def _save_quick_photo(case_id: str, file: UploadFile, shot: str, actor: st
     return {"id":eid, "shot":shot,"filename":filename}
 
 
+_quick_analysis_lock = None
+
+
+def _update_quick_job(case_id,status,message):
+    with db() as con:
+        con.execute("""INSERT INTO quick_jobs(case_id,status,updated_at,error)
+                       VALUES(?,?,?,?)
+                       ON CONFLICT(case_id) DO UPDATE SET
+                       status=excluded.status, updated_at=excluded.updated_at,
+                       error=excluded.error""",
+                    (case_id,status,now(),message))
+
+
+def _release_cpu_sessions():
+    """Release cached ONNX sessions between models on memory-limited instances."""
+    import gc
+    import yolo_onnx, yolo_defects, yolo_paint, surface_segmentation
+    with yolo_onnx._lock:
+        yolo_onnx._session = None
+    with yolo_defects._lock:
+        yolo_defects._sessions.clear()
+    with yolo_paint._lock:
+        yolo_paint._session = None
+    with surface_segmentation._lock:
+        surface_segmentation._session = None
+    gc.collect()
+
+
+async def _run_queued_quick_inspection(case_id,actor):
+    global _quick_analysis_lock
+    import asyncio
+    if _quick_analysis_lock is None:
+        _quick_analysis_lock = asyncio.Lock()
+    async with _quick_analysis_lock:
+        _update_quick_job(case_id,"running","Preparando modelos para el análisis")
+        try:
+            with db() as con:
+                photos=[dict(row) for row in con.execute(
+                    "SELECT id,shot,filename FROM evidence WHERE case_id=? ORDER BY created_at, rowid",
+                    (case_id,))]
+            if not photos:
+                raise RuntimeError("No hay fotografías para analizar")
+            await _run_quick_pipeline(
+                case_id,photos,
+                os.getenv("YOLO_CPU_ENABLED")=="1",
+                bool(os.getenv("OPENAI_API_KEY")),
+                os.getenv("SURFACE_SEGMENTATION_ENABLED")=="1",
+                actor,job=True)
+            _update_quick_job(case_id,"completed","Informe generado correctamente")
+        except Exception:
+            # Never expose credentials, filenames, or model internals to the browser.
+            _update_quick_job(case_id,"failed",
+                "El análisis no pudo finalizar. Puedes reintentarlo desde el mismo expediente.")
+        finally:
+            if os.getenv("TASACION_LOW_MEMORY_MODE")=="1":
+                _release_cpu_sessions()
+
+
+@app.post("/api/quick-inspection/start",status_code=202)
+async def quick_inspection_start(background_tasks: BackgroundTasks, req: Request,
+                                 exterior: UploadFile=File(...),
+                                 interior: UploadFile | None=File(default=None)):
+    """Accept uploads immediately so Render does not time out during inference."""
+    actor=auth(req,write=True)
+    if not (os.getenv("YOLO_CPU_ENABLED")=="1"
+            or os.getenv("SURFACE_SEGMENTATION_ENABLED")=="1"
+            or bool(os.getenv("OPENAI_API_KEY"))):
+        raise HTTPException(503,"No hay modelos habilitados para evaluar fotografías")
+    case_id=str(uuid.uuid4())
+    title="Inspección rápida "+datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    with db() as con:
+        con.execute("INSERT INTO cases(id,asset_type,title,created_at,updated_at) VALUES(?,?,?,?,?)",
+                    (case_id,"vivienda",title,now(),now()))
+    photos=[]
+    try:
+        photos.append(await _save_quick_photo(case_id,exterior,"Exterior",actor))
+        if interior is not None and interior.filename:
+            photos.append(await _save_quick_photo(case_id,interior,"Interior",actor))
+    except HTTPException:
+        with db() as con:
+            con.execute("DELETE FROM cases WHERE id=?",(case_id,))
+        for photo in photos:
+            (UPLOADS/photo["filename"]).unlink(missing_ok=True)
+        raise
+    _update_quick_job(case_id,"queued","Fotografías recibidas; esperando análisis")
+    background_tasks.add_task(_run_queued_quick_inspection,case_id,actor)
+    return {"case_id":case_id,"status":"queued",
+            "job_url":"/api/quick-inspection/jobs/"+case_id}
+
+
+@app.get("/api/quick-inspection/jobs/{case_id}")
+def get_quick_inspection_job(case_id: str,req: Request):
+    auth(req)
+    require_case(case_id)
+    with db() as con:
+        job=con.execute("SELECT status,updated_at,error FROM quick_jobs WHERE case_id=?",
+                        (case_id,)).fetchone()
+        report=con.execute("SELECT result_json FROM rapid_reports WHERE case_id=?",
+                           (case_id,)).fetchone()
+    if not job:
+        raise HTTPException(404,"No existe un análisis en cola para este expediente")
+    status=job["status"]
+    if report:
+        status="completed"
+    elif status in ("queued","running"):
+        try:
+            last=datetime.fromisoformat(job["updated_at"])
+            if datetime.now(timezone.utc)-last>timedelta(minutes=6):
+                status="interrupted"
+        except ValueError:
+            status="interrupted"
+    return {"case_id":case_id,"status":status,
+            "message":job["error"] if status!="interrupted" else
+                "El proceso se interrumpió en el servidor. Reintenta el análisis.",
+            "report":json.loads(report["result_json"]) if report else None}
+
+
+@app.post("/api/quick-inspection/jobs/{case_id}/retry",status_code=202)
+def retry_quick_inspection_job(case_id: str,req: Request,
+                               background_tasks: BackgroundTasks):
+    actor=auth(req,write=True)
+    require_case(case_id)
+    previous=get_quick_inspection_job(case_id,req)
+    if previous["status"]=="completed":
+        return {"case_id":case_id,"status":"completed"}
+    if previous["status"] in ("queued","running"):
+        raise HTTPException(409,"El análisis todavía está en ejecución")
+    with db() as con:
+        count=con.execute("SELECT COUNT(*) FROM evidence WHERE case_id=?",
+                          (case_id,)).fetchone()[0]
+    if not count:
+        raise HTTPException(422,"Este expediente no tiene fotos")
+    _update_quick_job(case_id,"queued","Reintentando análisis")
+    background_tasks.add_task(_run_queued_quick_inspection,case_id,actor)
+    return {"case_id":case_id,"status":"queued"}
+
+
 @app.post("/api/quick-inspection", status_code=201)
 async def quick_inspection(req: Request, exterior: UploadFile = File(...),
                            interior: UploadFile | None = File(default=None)):
@@ -598,8 +735,15 @@ async def quick_inspection(req: Request, exterior: UploadFile = File(...),
         for p in photos:
             (UPLOADS / p["filename"]).unlink(missing_ok=True)
         raise
+    return await _run_quick_pipeline(case_id,photos,can_yolo,can_vision,can_surfaces,actor)
+
+
+async def _run_quick_pipeline(case_id,photos,can_yolo,can_vision,can_surfaces,actor,job=False):
+    """Analyze sequentially; supports legacy synchronous and queued background calls."""
     analyses = []
-    for photo in photos:
+    for photo_number, photo in enumerate(photos, start=1):
+        if job:
+            _update_quick_job(case_id,"running",f"Procesando fotografía {photo_number} de {len(photos)}")
         result = None
         error = None
         annotated = None
@@ -720,6 +864,8 @@ async def quick_inspection(req: Request, exterior: UploadFile = File(...),
                     "en viviendas reales de Perú y no debe usarse para aprobar créditos.")
             except (OSError,ValueError,RuntimeError,ImportError,IndexError,TypeError) as exc:
                 error=(error+"; " if error else "")+"El detector experimental de pintura no estuvo disponible"
+        if os.getenv("TASACION_LOW_MEMORY_MODE")=="1":
+            _release_cpu_sessions()
         # Semantic surfaces are independent of defects, damage scoring, and monetary valuation.
         if can_surfaces:
             try:
@@ -753,6 +899,8 @@ async def quick_inspection(req: Request, exterior: UploadFile = File(...),
                          json.dumps(result,ensure_ascii=False),now()))
         analyses.append({"evidence_id":photo["id"],"shot":photo["shot"],
                          "result":result,"error":error})
+        if os.getenv("TASACION_LOW_MEMORY_MODE")=="1":
+            _release_cpu_sessions()
     summary=summarize(analyses,len(photos),can_vision)
     summary["case_id"]=case_id
     summary["generated_at"]=now()
@@ -764,6 +912,8 @@ async def quick_inspection(req: Request, exterior: UploadFile = File(...),
         _sync_quick_findings(con,case_id,summary)
     log(actor,"generar_informe_rapido",case_id)
     return summary
+
+
 
 
 def _get_rapid_report(case_id: str, req: Request):
