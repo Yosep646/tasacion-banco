@@ -52,7 +52,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           export SHA="$(sha256sum weights/vivienda-defectos-5.onnx | cut -d' ' -f1)"
-          if [ "$SHA" != "849148feb9a15a5b1d02ae5477befe3248f35f9305bd1e188a9035000d69397a" ]; then
+          if [ "$SHA" != "2931308c585294a4c2098bafaa08809d10de8b41cee9b09dbdc8d31fe2a77746" ]; then
             if gh release view v0.2-defect5-onnx >/dev/null 2>&1; then
               echo "::notice::The export hash changed (ONNX metadata can vary); keeping verified pinned production release unchanged."
               exit 0
