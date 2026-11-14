@@ -1,0 +1,21 @@
+name: Audit real public building labels
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/audit_public_paint.py
+      - .github/workflows/audit-public-paint.yml
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install 'huggingface_hub>=0.30,<2'
+      - name: Read class names and available real annotations
+        run: python scripts/audit_public_paint.py
