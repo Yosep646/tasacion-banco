@@ -30,7 +30,7 @@ def convert_coco(root:Path,destination:Path,min_per_split=5,max_train=450,seed=4
     report={"source":SOURCE_URL,"license":SOURCE_LICENSE,"class":TARGET_CLASS,
             "splits":{},"image_hashes_by_split":{},"status":"dataset_preparado"}
     seen_hashes=set()
-    seen_families=set()
+    family_splits={}
     all_records={}
     for split in ("train","valid","test"):
         folder=root/split
@@ -78,10 +78,10 @@ def convert_coco(root:Path,destination:Path,min_per_split=5,max_train=450,seed=4
             if digest in seen_hashes:
                 raise ValueError("Imagen duplicada entre particiones")
             # Abort rather than silently leak close variants of a single original.
-            if family in seen_families:
-                raise ValueError("Familia de aumento duplicada: "+family)
+            if family in family_splits and family_splits[family]!=split:
+                raise ValueError("Familia de aumento repartida entre train/val/test: "+family)
             seen_hashes.add(digest)
-            seen_families.add(family)
+            family_splits[family]=split
             width,height=int(item["width"]),int(item["height"])
             if width<10 or height<10:raise ValueError("Dimensiones de fotografía inválidas")
             labels=[]
