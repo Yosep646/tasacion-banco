@@ -55,6 +55,7 @@ def main():
             "TASACION_ADMIN_PASSWORD": secrets.token_urlsafe(32),
             "APP_ENV": "development",
             "SURFACE_SEGMENTATION_ENABLED": "1",
+            "TASACION_LOW_MEMORY_MODE": "1",
             "YOLO_CPU_ENABLED": "0",
             "YOLO_DEFECT5_ENABLED": "0",
             "YOLO_PAINT_ENABLED": "0",
@@ -91,10 +92,14 @@ def main():
             ("exterior", ("facade.jpg", photos[0][1], "image/jpeg")),
             ("interior", ("interior.jpg", photos[1][1], "image/jpeg")),
         ]
-        response = client.post("/api/quick-inspection", files=files)
-        assert response.status_code == 201, (
+        response = client.post("/api/quick-inspection/start", files=files)
+        assert response.status_code == 202, (
             f"Quick inspection HTTP {response.status_code}: {response.text[:160]}")
-        report = response.json()
+        case_id = response.json()["case_id"]
+        job = client.get("/api/quick-inspection/jobs/"+case_id)
+        assert job.status_code == 200, job.text[:160]
+        assert job.json()["status"] == "completed", job.text[:250]
+        report = job.json()["report"]
         assert report["images_analyzed"] == 2
         assert report["property_market_value"] is None
         assert report["human_review_required"] is True
@@ -131,6 +136,8 @@ def main():
             "source": "Wikimedia Commons CC0 or Pexels License",
             "model": "SegFormer-B0 ADE20K ONNX",
             "api_upload": True,
+            "nonblocking_job": True,
+            "low_memory_mode": True,
             "api_persisted": True,
             "pdf_generated": True,
             "overlays_downloadable": True,
