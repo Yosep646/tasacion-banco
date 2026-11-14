@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from contextlib import contextmanager
 from yolo_service import predict_findings, get_model_configuration
-from vision_service import analyze_photo, evaluate_condition, guided_shots, simulate_credit
+from vision_service import analyze_photo, evaluate_condition, guided_shots, simulate_credit, VisionProviderError
 from yolo_onnx import predict_cracks
 from yolo_defects import detect_defects
 from yolo_paint import detect_paint
@@ -303,8 +303,17 @@ def multimodal_selftest(req: Request):
         sample.save(path,format="JPEG")
         try:
             result=analyze_photo(str(path),"Imagen neutra de prueba","vivienda")
+        except VisionProviderError as exc:
+            raise HTTPException(503, {
+                "reason":exc.reason,
+                "message":str(exc),
+                "provider_status":exc.provider_status,
+            }) from None
         except (RuntimeError,ValueError,OSError,json.JSONDecodeError) as exc:
-            raise HTTPException(503,"La verificación con el proveedor multimodal falló") from exc
+            raise HTTPException(503, {
+                "reason":"validation_failed",
+                "message":"No fue posible validar el proveedor multimodal. Revisa el modelo y la conexión.",
+            }) from None
     return {
         "status":"provider_response_validated",
         "model":os.getenv("VISION_MODEL","gpt-4.1-mini"),
