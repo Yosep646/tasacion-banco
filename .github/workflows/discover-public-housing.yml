@@ -1,0 +1,20 @@
+name: Find public training data for housing
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/discover_public_housing.py'
+      - '.github/workflows/discover-public-housing.yml'
+permissions:
+  contents: read
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install 'huggingface_hub>=0.30,<2'
+      - run: python scripts/discover_public_housing.py
