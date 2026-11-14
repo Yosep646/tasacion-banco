@@ -1,3 +1,15 @@
+## Segmentación semántica de paredes, pisos y techos (14/11/2026)
+
+Se añadió `surface_segmentation.py` usando **SegFormer-B0 ADE20K (ONNX cuantizado, CPU)**, de [Xenova/segformer-b0-finetuned-ade-512-512](https://huggingface.co/Xenova/segformer-b0-finetuned-ade-512-512). Se valida la integridad de los pesos contra el SHA-256 publicado por Hugging Face, antes de utilizarlos. El modelo ocupa aproximadamente 4,42 MB; requiere acceso de salida a Hugging Face en la primera carga (y tras reinicios sin disco persistente). No necesita `OPENAI_API_KEY`, PyTorch ni transferencia de imágenes a proveedores externos.
+
+- Configuración explícita: `SURFACE_SEGMENTATION_ENABLED=1` en variables de entorno del servicio. Valor por defecto: deshabilitado para evitar nuevas descargas/carga CPU en instancias limitadas hasta confirmar capacidad.
+- En inspección rápida (1–2 fotografías), se ejecuta junto con los detectores que estén activos y el resultado se guarda como `surfaces` dentro de cada análisis visual, con `classes` (`pared`, `piso`, `techo`), porcentajes de píxeles, `mask_url` y `overlay_url`.
+- En el expediente avanzado, el botón «Segmentar paredes, pisos y techos» llama a `POST /api/cases/{case_id}/segment-surfaces/{evidence_id}` y guarda la evidencia como evaluación pendiente, con imágenes accesibles solo con sesión autenticada: `/api/evidence/{evidence_id}/surface-overlay` y `/api/evidence/{evidence_id}/surface-mask`.
+- La máscara transparente PNG y la superposición JPEG respetan el tamaño de cada fotografía. Cada color corresponde a una clase; el modelo identifica superficies visibles, **no los materiales, desperfectos, dimensiones ni superficie real en m²**.
+- Este es un modelo genérico de escenas, no entrenado ni validado específicamente con viviendas peruanas. Las predicciones pueden confundirse, especialmente en vistas exteriores y cielos rasos. Se requiere revisión humana.
+- Para validar los cambios sin descargar pesos, se incluyen `tests/test_surface_segmentation.py` y CI; para validar el modelo real en Render, hace falta activar la variable, realizar una inferencia, revisar la superposición y medir memoria/latencia. El repositorio no constituye prueba de despliegue operativo.
+- No agregar claves API al código, los logs ni a GitHub. Si se compartió una clave, revocarla y emitir otra; configurar una nueva solo como variable secreta `OPENAI_API_KEY` si se desea visión multimodal.
+
 ## Segmentación real de fisuras — 14 noviembre 2026
 
 La inferencia CPU de `yolo_onnx.py` reconstruye las **máscaras por instancia** de YOLOv8-seg cuando el archivo ONNX exportado proporciona predicciones y prototipos de máscaras. Las máscaras se proyectan de vuelta sobre la imagen sin relleno, se recortan dentro de la caja de la detección y se superponen con transparencia en el archivo de evidencia `-yolo.jpg`.
