@@ -236,6 +236,20 @@ def test_automatic_repair_scenario_with_trusted_public_prices():
     assert quote["suggested_credit_pen"] is None
 
 
+def test_repair_quote_prefers_highest_confidence_regardless_of_detection_order():
+    from repair_pricing import build_automatic_quote
+    scenario=build_automatic_quote([
+        {"category":"fisura_visible","shot":"Exterior","confidence":0.36},
+        {"category":"fisura_visible","shot":"Exterior","confidence":0.74},
+        {"category":"fisura_visible","shot":"Exterior","confidence":0.59},
+    ])
+    assert len(scenario["items"])==1
+    assert scenario["items"][0]["confidence"]==0.74
+    assert scenario["illustrative_min_pen"]==23.02
+    assert scenario["illustrative_max_pen"]==69.06
+    assert scenario["low_confidence_excluded"]==0
+
+
 def test_automatic_repair_excludes_structural_cracks_and_experimental_paint():
     from repair_pricing import build_automatic_quote
     quote=build_automatic_quote([
