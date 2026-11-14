@@ -131,11 +131,52 @@ def predict_cracks(image_path, confidence=0.35):
                       "origin":"yolo_onnx_fisuras",
                       "description":"Posible fisura detectada automáticamente; requiere verificación.",
                       "improvement":"Inspección presencial y presupuesto de reparación si corresponde",
-                      "raw_box":xyxy, "box":orig_box})
+                      "raw_box":xyxy, "box":orig_box, "anchor":int(i),
+                      "has_mask":False, "mask_coverage_percent_image":None})
         if len(found) >= 12:
             break
-    # Draw supported bounding boxes. These are not structural damage masks.
+    # YOLOv8-seg exports prototype masks as a second ONNX output
+    # (1, 32, 160, 160). Decode instance coefficients for the retained boxes
+    # and reverse the 640px letterbox transform. Coverage is in IMAGE PIXELS,
+    # never metres/m²: camera distance and scale are unknown.
     annotated = rgb.copy()
+    if len(outputs) >= 2:
+        prototypes = np.asarray(outputs[1])
+        if prototypes.ndim == 4 and prototypes.shape[0] == 1:
+            prototypes = prototypes[0]
+        if prototypes.ndim != 3 or prototypes.shape[0] != 32:
+            raise RuntimeError("Prototipos de segmentación YOLOv8 incompatibles")
+        tint = Image.new("RGB", rgb.size, (227, 44, 58))
+        for item in found:
+            # Recover the anchor's 32 mask coefficients. Keep the best class
+            # prediction from the same anchor as its bounding box.
+            anchor = item["anchor"]
+            coefficients = preds[4 + class_count:, anchor]
+            logits = np.tensordot(coefficients, prototypes, axes=(0, 0))
+            probability = _sigmoid(logits)
+            mask_640 = Image.fromarray(
+                np.uint8(np.clip(probability * 255, 0, 255)), "L"
+            ).resize((640, 640), Image.Resampling.BILINEAR)
+            # Never color any pixels outside this instance's detected box.
+            x1, y1, x2, y2 = item["raw_box"]
+            left, top = max(0, int(np.floor(x1))), max(0, int(np.floor(y1)))
+            right, bottom = min(640, int(np.ceil(x2))), min(640, int(np.ceil(y2)))
+            restricted = Image.new("L", (640, 640), 0)
+            if right > left and bottom > top:
+                restricted.paste(mask_640.crop((left, top, right, bottom)), (left, top))
+            unpadded = restricted.crop((dx, dy, dx + rw, dy + rh))
+            image_mask = unpadded.resize((w, h), Image.Resampling.NEAREST)
+            binary = np.asarray(image_mask) >= 128
+            pixel_count = int(np.count_nonzero(binary))
+            item["has_mask"] = pixel_count > 0
+            item["mask_coverage_percent_image"] = round(
+                100.0 * pixel_count / (w * h), 3
+            )
+            if pixel_count:
+                annotation_mask = Image.fromarray(
+                    np.uint8(binary) * 100, "L"
+                )
+                annotated.paste(tint, (0, 0), annotation_mask)
     draw = ImageDraw.Draw(annotated)
     for item in found:
         draw.rectangle(tuple(item["box"]), outline=(224,37,44), width=max(2,int(w/300)))
@@ -144,4 +185,5 @@ def predict_cracks(image_path, confidence=0.35):
                   fill=(224,37,44))
     for item in found:
         item.pop("raw_box", None)
+        item.pop("anchor", None)
     return found, annotated
