@@ -39,7 +39,8 @@ for required in (
     'id="logout"',
     '/api/quick-inspection',
     'renderQuickResults(body)',
-    'multiclassYoloEnabled?"✓ YOLO 5 defectos"',
+    'multiclassYoloEnabled?"YOLO 5 defectos configurado"',
+    '/api/model-readiness',
 ):
     assert required in html, "Falta elemento del diseño integrado: " + required
 assert html.count('id="exteriorFile"') == 1
