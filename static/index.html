@@ -411,7 +411,21 @@ body{background:#f1f5fc}
 .model-pending{background:#fff0dc;color:#8b6328}
 .model-coverage p{font-size:12px;line-height:1.6;color:#6a7d98}
 @media(max-width:670px){.model-coverage-grid{grid-template-columns:1fr}}
-.one-model-ready{font-size:11px;line-height:1.6;color:#657994;margin:12px 0 0}.exploratory-panel{padding:20px;border:1px solid #e4c98e;background:#fffbf3;border-radius:15px;margin:16px 0}.exploratory-panel h3{color:#785017}.exploratory-panel .result-section-head span{color:#9b691b}.exploratory-intro{font-size:12px;line-height:1.65;color:#8c6c3a;margin:10px 0 16px}.exploratory-item{border-top:1px solid #eddcb9;padding:12px 0}.exploratory-item strong{font-size:13px;color:#805114}.exploratory-item span{font-size:11px;color:#986e29}.exploratory-item p{font-size:12px;color:#816740;margin:6px 0}</style></head><body>
+.one-model-ready{font-size:11px;line-height:1.6;color:#657994;margin:12px 0 0}.exploratory-panel{padding:20px;border:1px solid #e4c98e;background:#fffbf3;border-radius:15px;margin:16px 0}.exploratory-panel h3{color:#785017}.exploratory-panel .result-section-head span{color:#9b691b}.exploratory-intro{font-size:12px;line-height:1.65;color:#8c6c3a;margin:10px 0 16px}.exploratory-item{border-top:1px solid #eddcb9;padding:12px 0}.exploratory-item strong{font-size:13px;color:#805114}.exploratory-item span{font-size:11px;color:#986e29}.exploratory-item p{font-size:12px;color:#816740;margin:6px 0}</style><style>
+.value-preview{border-radius:19px;background:linear-gradient(125deg,#122a50,#2453a2);padding:22px 25px;margin:19px 0 24px;color:#fff;display:flex;justify-content:space-between;align-items:center;gap:20px}
+.value-preview-kicker{display:block;font-size:11px;letter-spacing:.08em;font-weight:800;color:#b9d1ff;line-height:1.5}
+.value-preview strong{display:block;font-size:clamp(25px,3.1vw,39px);line-height:1.15;margin:9px 0;color:white}
+.value-preview p{font-size:12px;color:#d5e3ff;line-height:1.7;margin:0;max-width:700px}
+.value-preview-icon{display:grid;place-items:center;flex-shrink:0;width:54px;height:54px;border-radius:18px;background:#ffffff1c;font-weight:900;font-size:20px}
+.official-reference{background:#fff;border:1px solid #d7e2f2;border-radius:15px;padding:20px;margin-top:18px}
+.official-reference h4{font-size:17px;color:#112d52;margin:0 0 8px}
+.official-reference p,.official-reference small{font-size:12px;line-height:1.65;color:#687d98}
+.official-reference-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:16px 0}
+.official-reference-fields label{font-weight:700;font-size:12px;color:#263e5e}
+.official-reference-fields input,.official-reference-fields select{display:block;width:100%;min-height:47px;margin-top:7px;border:1px solid #c9d8ee;border-radius:10px;padding:10px;background:#fff;color:#1c3555}
+#officialReferenceMessage{margin:11px 0;color:#2354a5;font-size:12px;line-height:1.5}
+@media(max-width:850px){.official-reference-fields{grid-template-columns:1fr}.value-preview{padding:18px}.value-preview-icon{display:none}}
+</style></head><body>
 <div id="loginPanel" class="card auth hide"><div class="brand"><span class="logo">TV</span><div><h1 class="heading">Tasación Visual</h1><p class="muted">Ingreso seguro al sistema</p></div></div>
 <form id="loginForm"><div class="field"><label>Usuario</label><input id="user" autocomplete="username" required placeholder="administrador"></div><div class="field"><label>Contraseña</label><input id="pass" type="password" autocomplete="current-password" required></div><button class="primary" style="width:100%">Ingresar</button></form><p id="loginError" class="danger"></p></div>
 <div id="mainPanel" class="shell hide"><div class="layout">
@@ -497,6 +511,9 @@ function renderQuickStart(){
 }
 function renderQuickResults(result){
  const issues=result.issues||[], materials=result.materials||[],images=result.image_summaries||[];
+ const reference=result.official_construction_reference||null;
+ const illustrative=result.illustrative_construction_example||null;
+ const moneyText=reference?money(reference.construction_reference_pen):illustrative?money(illustrative.construction_reference_pen):'Por calcular';
  const partial=result.status==='analisis_no_disponible';
  const rows=issues.map(item=>'<article class="result-issue"><span class="issue-bullet">!</span><div><div class="result-issue-heading"><strong>'+escapeHTML(item.category)+'</strong><span class="result-review-state">Por verificar</span></div>'+
  '<p><b>Vista:</b> '+escapeHTML(item.shot||'Imagen')+' · '+escapeHTML(item.description||'Observación visual preliminar')+'</p><small>Recomendación: '+escapeHTML(item.improvement||'Validar con especialista')+'</small></div></article>').join('');
@@ -504,6 +521,7 @@ function renderQuickResults(result){
  $('workspace').innerHTML='<div class="quick-result-title"><div><span class="quick-eyebrow">INFORME DE INSPECCIÓN · PRELIMINAR</span><h2>Tu análisis visual está listo</h2><p>Evaluación automática basada en '+images.length+' fotografía(s). No sustituye una inspección profesional.</p></div><span class="quick-report-tag">'+(partial?'Inferencia no disponible':'Pendiente de revisión')+'</span></div>'+
  '<div class="quick-stepper" aria-label="Etapas del análisis"><div class="step is-done"><b>✓</b><span>Imágenes recibidas</span></div><div class="step is-done"><b>✓</b><span>Proceso finalizado</span></div><div class="step is-current"><b>03</b><span>Consultar informe</span></div></div>'+
  '<div class="result-status-card"><div><span class="quick-small-label">ESTADO VISUAL OBSERVADO</span><strong>'+escapeHTML(result.condition)+'</strong><p>Las conclusiones se limitan a las zonas fotografiadas.</p></div><div class="result-status-icon" aria-hidden="true">⌕</div></div>'+
+ '<section class="value-preview" aria-label="Referencia monetaria de edificación"><div><span class="value-preview-kicker">'+(reference?'REFERENCIA DE EDIFICACIÓN CON DATOS DECLARADOS':'EJEMPLO DIDÁCTICO DE CONSTRUCCIÓN, NO TASACIÓN DE ESTA CASA')+'</span><strong id="referencePreview">'+escapeHTML(moneyText)+'</strong><p id="referencePreviewNote">'+(reference?'Basada en '+escapeHTML(reference.built_area_m2)+' m², zona '+escapeHTML(reference.zone)+' y categoría '+escapeHTML(reference.grade)+'. No incluye terreno, depreciación ni valor comercial.':'Ejemplo hipotético: 60 m² en Sierra, categoría D. Introduce el área real y selecciona zona y categoría para calcular tu referencia.')+'</p></div><span class="value-preview-icon" aria-hidden="true">S/</span></section>'+
  '<div class="quick-actions"><a class="primary quick-action-btn" href="/api/cases/'+encodeURIComponent(result.case_id)+'/quick-report.pdf" target="_blank" rel="noopener">↓ Descargar informe PDF</a>'+
  '<button class="secondary" id="anotherQuick">＋ Nueva evaluación</button><button class="secondary" id="viewAdvanced">Ver expediente</button></div>'+
  '<div class="result-section-head"><h3>Fotografías analizadas</h3><span>'+images.length+' vista(s)</span></div><div class="result-photo-grid">'+photos+'</div>'+
@@ -523,7 +541,17 @@ function renderQuickResults(result){
  '<div><b>Pendiente de entrenamiento</b>'+(result.capabilities?.training_required||[]).map(x=>'<span class="model-pending">'+escapeHTML(x.replaceAll("_"," "))+'</span>').join('')+'</div></div>'+
  '<p>Las clases pendientes no se deducen por la ausencia de una caja. Las alertas de moho, filtración y pintura requieren revisión especial por su menor precisión.</p></details>'+
  '<div class="result-price-panel"><div class="result-section-head"><h3>Presupuesto y valor del inmueble</h3><span>Cálculo referencial</span></div>'+
- '<div class="result-price-grid"><div><small>Cotización de mejoras</small><strong>Por cuantificar</strong><p>Para un total en soles faltan metrados y cotizaciones verificadas. La IA no puede medir superficies reales de una foto sin escala.</p></div><div><small>Tasación monetaria</small><strong id="referenceTotal">Requiere datos de referencia</strong><p>Fotos solas no determinan valor de mercado ni de garantía. Usa valores oficiales o comparables documentados.</p></div></div>'+
+ '<div class="result-price-grid"><div><small>Cotización de reparaciones</small><strong>Por cuantificar</strong><p>Faltan medidas y presupuestos verificables; el daño detectado por YOLO no da el tamaño real de reparación.</p></div><div><small>Valor referencial de edificación (SIN TERRENO)</small><strong id="referenceTotal">'+(reference?escapeHTML(money(reference.construction_reference_pen)):'No calculado para esta vivienda')+'</strong><p>Tabla oficial CAP noviembre 2026. No equivale al precio comercial, garantía ni monto del crédito.</p></div></div>'+
+ '<div class="official-reference"><h4>Calcula una referencia de construcción en S/</h4><p>Solo se necesitan el área techada real, la zona del cuadro y una categoría de ejemplo. Las fotografías no permiten verificar esas características.</p>'+
+ '<form id="officialReferenceForm"><div class="official-reference-fields">'+
+ '<label>Área techada real (m²)<input type="number" min="1" max="50000" step="0.01" name="built_area_m2" placeholder="Ej. 60" required value="'+(reference?escapeHTML(reference.built_area_m2):'')+'"></label>'+
+ '<label>Zona del cuadro<select name="zone" required><option value="">Selecciona la zona</option>'+
+ [['lima_callao','Lima Metropolitana y Callao'],['costa','Costa (excepto Lima y Callao)'],['sierra','Sierra'],['selva','Selva']].map(p=>'<option value="'+p[0]+'" '+(reference?.zone===p[0]?'selected':'')+'>'+p[1]+'</option>').join('')+'</select></label>'+
+ '<label>Categoría homogénea de simulación<select name="grade" required><option value="">Selecciona categoría</option>'+
+ ['C','D','E','F'].map(g=>'<option value="'+g+'" '+(reference?.grade===g?'selected':'')+'>'+g+' — aproximación no verificada</option>').join('')+'</select></label></div>'+
+ '<button type="submit" class="primary">Calcular monto referencial con tabla oficial</button><div id="officialReferenceMessage" role="status" aria-live="polite"></div></form>'+
+ '<small>La categoría debe seleccionarse por las características de cada una de las siete partidas. Aquí se aplica una sola categoría para simplificar el ejemplo; no es una pericia. <a href="https://cap.org.pe/valores-unitarios-oficiales-de-edificaciones/" target="_blank" rel="noopener">Consulta las tablas originales CAP.</a></small></div>'+
+
  '<details class="valuation-expand"><summary>Calcular escenario monetario con datos documentados (opcional)</summary><p>Si conoces el área real y un costo por m² sustentado, el sistema calculará una referencia en S/. No es un avalúo pericial ni una cifra extraída de las fotografías.</p>'+
  '<form id="scenarioForm"><div class="scenario-fields"><label>Área construida (m²)<input type="number" name="built_area_m2" min="1" max="100000" step=".01" required placeholder="Ej. 75"></label>'+
  '<label>Valor unitario documentado (S/ por m²)<input type="number" name="construction_unit_pen_m2" min="1" max="100000" step=".01" required placeholder="Según fuente"></label>'+
@@ -535,6 +563,27 @@ function renderQuickResults(result){
  '<details class="quick-limits"><summary>Alcance y limitaciones del informe</summary>'+(result.limitations||[]).map(x=>'<p>'+escapeHTML(x)+'</p>').join('')+'</details>';
  $('anotherQuick').onclick=renderQuickStart;
  $('viewAdvanced').onclick=async()=>{tab='general';await choose(result.case_id)};
+ const officialForm=$('officialReferenceForm');
+ if(officialForm)officialForm.onsubmit=async ev=>{
+   ev.preventDefault();
+   const button=officialForm.querySelector('button[type=submit]');
+   const status=$('officialReferenceMessage');
+   button.disabled=true;button.textContent='Calculando referencia…';
+   const payload=Object.fromEntries(new FormData(officialForm));
+   payload.built_area_m2=Number(payload.built_area_m2);
+   try{
+     const value=await request('/api/cases/'+encodeURIComponent(result.case_id)+'/official-construction-reference',json('POST',payload));
+     result.official_construction_reference=value;
+     const amount=money(value.construction_reference_pen);
+     $('referenceTotal').textContent=amount;
+     $('referencePreview').textContent=amount;
+     document.querySelector('.value-preview-kicker').textContent='REFERENCIA DE EDIFICACIÓN CON DATOS DECLARADOS';
+     $('referencePreviewNote').textContent='Área declarada: '+value.built_area_m2+' m² · zona: '+value.zone+' · categoría no verificada: '+value.grade+'. No incluye terreno ni depreciación.';
+     status.textContent='Referencia guardada en el informe PDF. No es una tasación comercial ni una garantía aprobada.';
+   }catch(error){
+     status.textContent='No fue posible calcular: '+error.message;
+   }finally{button.disabled=false;button.textContent='Actualizar referencia con tabla oficial'}
+ };
  const scenario=$('scenarioForm');
  if(scenario)scenario.onsubmit=async ev=>{
    ev.preventDefault();
