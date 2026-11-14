@@ -253,7 +253,8 @@ def model_readiness(req: Request):
         "yolo_cracks":{
             "configured":os.getenv("YOLO_CPU_ENABLED")=="1",
             "state":_model_cache_status(crack_model_dir()/CRACK_MODEL) if os.getenv("YOLO_CPU_ENABLED")=="1" else "disabled",
-            "note":"Modelo de respaldo; estado de cache no equivale a validación de inferencia.",
+            "segmentation":"instance_masks_when_prototype_output_available",
+            "note":"YOLOv8-seg delimita posibles fisuras por píxel si el ONNX incluye prototipos. No produce metrado real.",
         },
         "yolo_paint":{
             "configured":paint_enabled,
@@ -591,6 +592,8 @@ async def quick_inspection(req: Request, exterior: UploadFile = File(...),
                         "improvement":improvement_for(defect["category"]),
                         "confidence":defect["confidence"],
                         "box":defect["box"],
+                        "has_mask":defect.get("has_mask",False),
+                        "mask_coverage_percent_image":defect.get("mask_coverage_percent_image"),
                         "origin":method,
                     })
                 if defects:
@@ -619,7 +622,10 @@ async def quick_inspection(req: Request, exterior: UploadFile = File(...),
                         result["issues"].extend([{
                             "category":c["category"],"severity":"no_determinada",
                             "description":c["description"],"improvement":improvement_for(c["category"]),
-                            "confidence":c["confidence"],"box":c["box"],"origin":"yolo_cpu_onnx_fallback",
+                            "confidence":c["confidence"],"box":c["box"],
+                            "has_mask":c.get("has_mask",False),
+                            "mask_coverage_percent_image":c.get("mask_coverage_percent_image"),
+                            "origin":"yolo_cpu_onnx_fallback",
                         } for c in cracks])
                         if cracks:result["condition"]="requiere_mejoras"
                         result["annotated_url"]="/api/evidence/"+photo["id"]+"/yolo-overlay"
@@ -934,7 +940,9 @@ def automatic_inspection(case_id: str, evidence_id: str, req: Request):
         "issues": [{
              "category":d["category"], "severity":"leve",
              "description":d["description"]+" Confianza "+str(round(d["confidence"]*100))+"%.",
-             "improvement":d["improvement"], "box":d["box"], "confidence":d["confidence"]
+             "improvement":d["improvement"], "box":d["box"], "confidence":d["confidence"],
+             "has_mask":d.get("has_mask",False),
+             "mask_coverage_percent_image":d.get("mask_coverage_percent_image")
         } for d in detections],
         "limitations":[
             "YOLOv8n-seg entrenado para fisuras visibles: no identifica techo de calamina, ladrillo, tarrajeo ni humedad.",
