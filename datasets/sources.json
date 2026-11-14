@@ -1,0 +1,4 @@
+{
+  "_instructions": "Reemplaza sources con conjuntos reales etiquetados, con licencia comprobada y splits train/val/test. No se permite inferir anotaciones ni reutilizar imágenes sin autorización.",
+  "sources": []
+}
