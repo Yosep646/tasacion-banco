@@ -7,6 +7,13 @@ import zipfile
 from PIL import Image
 from fastapi.testclient import TestClient
 
+# This test module is collected alphabetically before test_app.py; configure
+# the same isolated admin identity before importing app (which calls init_db).
+import os
+os.environ["APP_ENV"]="development"
+os.environ["TASACION_ADMIN_PASSWORD"]="strong-test-password"
+os.environ["SESSION_SECRET"]="local-testing-secret-do-not-use-in-production"
+
 import app
 
 
