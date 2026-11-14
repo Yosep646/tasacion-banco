@@ -80,7 +80,7 @@ python scripts/train_missing_categories.py --dataset datasets/prepared/data.yaml
 - El entrenamiento parte de `yolo26n.pt`, evalúa en test independiente y genera `evaluation_report.json` con **mAP50 y recall por clase**.
 - Bloquea la exportación si cualquier clase cae por debajo de AP50 0.40 o recall 0.50; esos son **umbrales experimentales**, no aprobación para decisiones hipotecarias.
 - Si pasan los umbrales, exporta `candidate_model.onnx`, pero **no lo sube a Render**. Falta revisar falsas detecciones, sensibilidad por clase, licencia comercial y pruebas en viviendas reales representativas del Perú.
-- GitHub Actions ofrece el workflow manual **Train remaining nine housing classes**: necesita un GitHub Release privado/autorizado llamado `housing-training-data-v1` con `housing-dataset.zip` y el archivo `datasets/sources.json` completado. Los runners habituales de GitHub son CPU y pueden ser demasiado lentos para entrenar el conjunto completo; una GPU es preferible.
+- GitHub Actions ofrece el workflow manual **Train remaining nine housing classes**: requiere secretos de GitHub Actions `TRAINING_DATA_URL` (URL HTTPS privada o firmada de un archivo ZIP autorizado) y `TRAINING_DATA_SHA256` (hash SHA256 del ZIP), además de `datasets/sources.json` completado. El ZIP debe contener exclusivamente rutas bajo `datasets/raw/`; los datos no se publican en GitHub. Los runners habituales de GitHub son CPU y pueden ser demasiado lentos para entrenar el conjunto completo; una GPU es preferible.
 - No se publican fotografías personales en GitHub. Los datos `datasets/raw/`, `datasets/prepared/`, `runs/` están en `.gitignore`. No utilices GitHub Releases públicos para fotografías privadas o expedientes de usuarios.
 
 ## Verificación de extremo a extremo
