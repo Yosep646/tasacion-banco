@@ -653,9 +653,18 @@ function renderQuickStart(){
    const status=$('multimodalSelfTestStatus');
    status.textContent='Verificando proveedor con imagen sintética…';
    try{
-     const report=await request('/api/multimodal-selftest',{method:'POST'});
-     status.textContent='Conexión validada: '+report.model+'. No se enviaron fotografías privadas.';
-   }catch(e){status.textContent='No se pudo validar: '+e.message}
+     const response=await fetch('/api/multimodal-selftest',{method:'POST',credentials:'same-origin'});
+     const result=await response.json().catch(()=>({}));
+     if(!response.ok){
+       const detail=result.detail||{};
+       const message=typeof detail==='object'&&typeof detail.message==='string'
+         ?detail.message:typeof detail==='string'?detail:
+         'La conexión no pudo validarse (HTTP '+response.status+').';
+       status.textContent='Conexión no validada: '+message;
+     }else{
+       status.textContent='Conexión validada: '+result.model+'. No se enviaron fotografías privadas.';
+     }
+   }catch(e){status.textContent='No se pudo conectar al servidor. Comprueba la conexión e inténtalo de nuevo.'}
    finally{selfTest.disabled=false}
  };
  const form=$('quickForm');
