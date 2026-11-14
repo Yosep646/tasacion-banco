@@ -141,9 +141,13 @@ def train_public_paint(args):
     gate=metrics["ap50"]>=args.min_ap50 and metrics["recall"]>=args.min_recall
     metrics["technical_gate_passed"]=gate
     (target/"metrics.json").write_text(json.dumps(metrics,indent=2),encoding="utf-8")
-    if gate:
-        onnx=Path(YOLO(str(best)).export(format="onnx",imgsz=args.imgsz,opset=17,simplify=False))
-        shutil.copy2(onnx,target/"pintura-deteriorada-candidate.onnx")
+    # Preserve the trained experimental artifact for reproducibility even when the
+    # quality gate fails. The separate publication workflow will NEVER release or
+    # enable it unless both AP50 and recall pass.
+    onnx=Path(YOLO(str(best)).export(format="onnx",imgsz=args.imgsz,opset=17,simplify=False))
+    shutil.copy2(onnx,target/"pintura-deteriorada-candidate.onnx")
+    metrics["onnx_exported_for_research"]=True
+    (target/"metrics.json").write_text(json.dumps(metrics,indent=2),encoding="utf-8")
     print("TEST METRICS:",json.dumps(metrics))
     return metrics
 
