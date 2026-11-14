@@ -679,6 +679,28 @@ async def quick_inspection(req: Request, exterior: UploadFile = File(...),
                     "en viviendas reales de Perú y no debe usarse para aprobar créditos.")
             except (OSError,ValueError,RuntimeError,ImportError,IndexError,TypeError) as exc:
                 error=(error+"; " if error else "")+"El detector experimental de pintura no estuvo disponible"
+        # Semantic surfaces are independent of defects, damage scoring, and monetary valuation.
+        if can_surfaces:
+            try:
+                surface_data, surface_overlay, surface_mask = await run_in_threadpool(
+                    segment_surfaces, str(image_path))
+                surface_overlay.save(UPLOADS / (photo["id"]+"-surfaces.jpg"),
+                                     format="JPEG",quality=87)
+                surface_mask.save(UPLOADS / (photo["id"]+"-surface-mask.png"),format="PNG")
+                if result is None:
+                    result={"condition":"no_determinable",
+                            "summary":"Segmentación preliminar de superficies; no se inspeccionaron daños.",
+                            "materials":[],"issues":[],"limitations":[],
+                            "method":"segformer_b0_ade20k_onnx"}
+                else:
+                    result["method"] += "+segformer_b0_ade20k_onnx"
+                surface_data["overlay_url"]="/api/evidence/"+photo["id"]+"/surface-overlay"
+                surface_data["mask_url"]="/api/evidence/"+photo["id"]+"/surface-mask"
+                result["surfaces"]=surface_data
+                result["limitations"].append(
+                    "Cobertura por píxeles de la imagen; no representa dimensiones o m² reales.")
+            except (OSError,ValueError,RuntimeError,ImportError,IndexError,TypeError):
+                error=(error+"; " if error else "")+"No se pudo ejecutar la segmentación de superficies"
         if result is None:
             result={"condition":"no_determinable","summary":"No se pudo completar la inferencia visual.",
                     "materials":[],"issues":[],"limitations":["No hay resultados de IA verificados."],
