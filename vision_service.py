@@ -38,6 +38,82 @@ limitations: lista de textos breves (max 5)
 La recomendacion debe ser inspeccion o mejora, no monto ni autorizacion de credito.
 """
 
+class VisionProviderError(RuntimeError):
+    """Safe provider diagnostics: never include credentials or response body."""
+
+    def __init__(self, reason, message, provider_status=None):
+        super().__init__(message)
+        self.reason = reason
+        self.provider_status = provider_status
+
+
+def _classify_provider_error(exc):
+    """Classify only trusted HTTP status and fixed known API error codes.
+
+    Never return or log raw provider response messages: they may include
+    user input, account details or other sensitive information.
+    """
+    try:
+        payload = json.loads(exc.read(4096).decode("utf-8"))
+        data = payload.get("error", {}) if isinstance(payload, dict) else {}
+        if not isinstance(data, dict):
+            data = {}
+        code = data.get("code", "")
+        code = code if isinstance(code, str) else ""
+    except (ValueError, UnicodeError, OSError):
+        code = ""
+
+    status = int(exc.code)
+    if code in {"insufficient_quota", "billing_hard_limit_reached"}:
+        return VisionProviderError(
+            "insufficient_quota",
+            "La cuenta API no tiene saldo o alcanzó su límite de gasto. "
+            "Revisa Billing y los límites de uso en la plataforma de OpenAI.",
+            status,
+        )
+    if status == 401 or code in {"invalid_api_key", "authentication_error"}:
+        return VisionProviderError(
+            "authentication_failed",
+            "OpenAI rechazó la clave (HTTP 401). Revoca la clave expuesta, "
+            "crea una nueva y actualiza OPENAI_API_KEY en Render.",
+            status,
+        )
+    if status == 403:
+        return VisionProviderError(
+            "permission_denied",
+            "OpenAI rechazó el acceso (HTTP 403). Verifica el proyecto, "
+            "permisos de la clave y disponibilidad del modelo.",
+            status,
+        )
+    if status == 429:
+        return VisionProviderError(
+            "rate_limited",
+            "OpenAI limitó temporalmente las solicitudes (HTTP 429). "
+            "Consulta las cuotas y vuelve a intentar más tarde.",
+            status,
+        )
+    if status in (400, 404, 422):
+        return VisionProviderError(
+            "invalid_request",
+            "OpenAI rechazó la solicitud o el modelo (HTTP "
+            + str(status) + "). Verifica VISION_MODEL y la configuración del proyecto.",
+            status,
+        )
+    if status >= 500:
+        return VisionProviderError(
+            "provider_unavailable",
+            "El servicio de OpenAI no está disponible temporalmente (HTTP "
+            + str(status) + "). Intenta de nuevo después.",
+            status,
+        )
+    return VisionProviderError(
+        "provider_rejected",
+        "OpenAI rechazó la solicitud (HTTP " + str(status)
+        + "). Revisa el estado de tu cuenta y los permisos del proyecto.",
+        status,
+    )
+
+
 def guided_shots(asset_type):
     return GUIDES.get(asset_type, GUIDES["vivienda"])
 
@@ -113,11 +189,20 @@ def analyze_photo(image_path, shot, asset_type):
         with urllib.request.urlopen(req, timeout=50) as response:
             result = json.load(response)
     except urllib.error.HTTPError as exc:
-        # Do not log credentials, image content or personal data from error bodies.
-        raise RuntimeError("Proveedor visual respondio HTTP " + str(exc.code)) from exc
+        raise _classify_provider_error(exc) from None
     except (urllib.error.URLError, TimeoutError) as exc:
-        raise RuntimeError("No se pudo conectar al proveedor de vision") from exc
-    return normalize_vision(json.loads(extract_response_text(result)))
+        raise VisionProviderError(
+            "connection_failed",
+            "No se pudo conectar con OpenAI. Verifica conectividad y vuelve a intentarlo.",
+        ) from None
+    try:
+        return normalize_vision(json.loads(extract_response_text(result)))
+    except (KeyError, ValueError, TypeError, json.JSONDecodeError) as exc:
+        raise VisionProviderError(
+            "invalid_provider_response",
+            "OpenAI respondió, pero no devolvió el JSON esperado. "
+            "Reintenta la verificación o revisa VISION_MODEL.",
+        ) from None
 
 
 def evaluate_condition(asset_type, evidence, assessments, findings):
