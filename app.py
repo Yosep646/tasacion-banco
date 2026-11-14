@@ -49,6 +49,12 @@ if not SESSION_SECRET:
 app = FastAPI(title="Tasación Visual", version="1.0.0")
 app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET, same_site="lax", https_only=ENV == "production", max_age=8 * 3600)
 
+
+def _automatic_vision_enabled():
+    """Keep automatic inspections usable if optional paid vision is paused."""
+    return bool(os.getenv("OPENAI_API_KEY")) and os.getenv("VISION_MULTIMODAL_ENABLED","1")=="1"
+
+
 def now():
     return datetime.now(timezone.utc).isoformat()
 
@@ -288,7 +294,10 @@ def model_readiness(req: Request):
     return {
         "multimodal_vision":{
             "configured":bool(os.getenv("OPENAI_API_KEY")),
-            "state":"configured_unverified" if os.getenv("OPENAI_API_KEY") else "awaiting_rotated_secret",
+            "automatic_enabled":_automatic_vision_enabled(),
+            "state":("paused_quota_limited" if os.getenv("OPENAI_API_KEY") and not _automatic_vision_enabled()
+                     else "configured_unverified" if os.getenv("OPENAI_API_KEY")
+                     else "awaiting_rotated_secret"),
             "model":os.getenv("VISION_MODEL","gpt-4.1-mini"),
             "note":"Se requiere prueba real autenticada. Nunca enviar claves por chat ni almacenarlas en GitHub."
         },
@@ -661,7 +670,7 @@ async def _run_queued_quick_inspection(case_id,actor):
             await _run_quick_pipeline(
                 case_id,photos,
                 os.getenv("YOLO_CPU_ENABLED")=="1",
-                bool(os.getenv("OPENAI_API_KEY")),
+                _automatic_vision_enabled(),
                 os.getenv("SURFACE_SEGMENTATION_ENABLED")=="1",
                 actor,job=True)
             _update_quick_job(case_id,"completed","Informe generado correctamente")
@@ -682,7 +691,7 @@ async def quick_inspection_start(background_tasks: BackgroundTasks, req: Request
     actor=auth(req,write=True)
     if not (os.getenv("YOLO_CPU_ENABLED")=="1"
             or os.getenv("SURFACE_SEGMENTATION_ENABLED")=="1"
-            or bool(os.getenv("OPENAI_API_KEY"))):
+            or _automatic_vision_enabled()):
         raise HTTPException(503,"No hay modelos habilitados para evaluar fotografías")
     case_id=str(uuid.uuid4())
     title="Inspección rápida "+datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
@@ -758,7 +767,7 @@ async def quick_inspection(req: Request, exterior: UploadFile = File(...),
                            interior: UploadFile | None = File(default=None)):
     actor = auth(req, write=True)
     can_yolo = os.getenv("YOLO_CPU_ENABLED") == "1"
-    can_vision = bool(os.getenv("OPENAI_API_KEY"))
+    can_vision = _automatic_vision_enabled()
     can_surfaces = os.getenv("SURFACE_SEGMENTATION_ENABLED") == "1"
     if not can_yolo and not can_vision and not can_surfaces:
         raise HTTPException(503, "No hay un modelo de visión configurado para analizar fotografías")
@@ -784,6 +793,8 @@ async def quick_inspection(req: Request, exterior: UploadFile = File(...),
 async def _run_quick_pipeline(case_id,photos,can_yolo,can_vision,can_surfaces,actor,job=False):
     """Analyze sequentially; supports legacy synchronous and queued background calls."""
     analyses = []
+    vision_blocked_reason=None
+    successful_vision=0
     for photo_number, photo in enumerate(photos, start=1):
         if job:
             _update_quick_job(case_id,"running",f"Procesando fotografía {photo_number} de {len(photos)}")
@@ -792,12 +803,19 @@ async def _run_quick_pipeline(case_id,photos,can_yolo,can_vision,can_surfaces,ac
         annotated = None
         image_path = UPLOADS / photo["filename"]
         # YOLO detects possible cracks; multimodal model can add further visual observations.
-        if can_vision:
+        if can_vision and vision_blocked_reason is None:
             try:
                 result = await run_in_threadpool(analyze_photo,str(image_path),photo["shot"],"vivienda")
                 result["method"] = "multimodal_visual"
-            except (RuntimeError, ValueError, OSError, json.JSONDecodeError) as exc:
-                error = "El proveedor multimodal no respondió correctamente"
+                successful_vision+=1
+            except VisionProviderError as exc:
+                error="No fue posible obtener resultados del proveedor multimodal"
+                if exc.reason in ("insufficient_quota","rate_limited","authentication_failed",
+                                  "permission_denied","invalid_request","provider_rejected"):
+                    # Do not repeatedly charge or retry an unusable provider on the next photo.
+                    vision_blocked_reason=exc.reason
+            except (RuntimeError, ValueError, OSError, json.JSONDecodeError):
+                error="El proveedor multimodal no respondió correctamente"
         if can_yolo:
             try:
                 if os.getenv("YOLO_DEFECT5_ENABLED") == "1":
@@ -945,6 +963,18 @@ async def _run_quick_pipeline(case_id,photos,can_yolo,can_vision,can_surfaces,ac
         if os.getenv("TASACION_LOW_MEMORY_MODE")=="1":
             _release_cpu_sessions()
     summary=summarize(analyses,len(photos),can_vision)
+    summary["multimodal_vision"]={
+        "configured":bool(os.getenv("OPENAI_API_KEY")),
+        "automatic_enabled":bool(can_vision),
+        "images_analyzed_by_multimodal":successful_vision,
+        "status":("provider_unavailable" if vision_blocked_reason
+                  else "completed" if successful_vision==len(photos)
+                  else "partial" if successful_vision
+                  else "paused" if bool(os.getenv("OPENAI_API_KEY")) and not can_vision
+                  else "not_configured" if not os.getenv("OPENAI_API_KEY")
+                  else "not_completed"),
+        "reason":vision_blocked_reason,
+    }
     summary["case_id"]=case_id
     summary["generated_at"]=now()
     if all(a["result"]["method"]=="inferencia_fallida" for a in analyses):
