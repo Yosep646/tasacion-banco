@@ -152,7 +152,9 @@ def test_optional_paint_detector_integrates_only_when_enabled(monkeypatch):
         files={"exterior":("fachada.jpg",photo(),"image/jpeg")})
     assert response.status_code==201,response.text
     data=response.json()
-    assert "pintura_deteriorada" in [x["category"] for x in data["issues"]]
+    assert "pintura_deteriorada" in [x["category"] for x in data["experimental_issues"]]
+    assert "pintura_deteriorada" not in [x["category"] for x in data["issues"]]
+    assert all(not x["affects_condition"] and not x["affects_quote"] for x in data["experimental_issues"])
     assert data["image_summaries"][0]["annotated_url"]
     assert "yolo_paint_experimental" in data["models"][0]
     assert data["quote"]["total_pen"] is None
