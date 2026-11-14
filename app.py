@@ -136,6 +136,17 @@ def serialize_case(row):
         c["evidence"] = [dict(r) for r in con.execute("SELECT id,case_id,original_name,shot,content_type,created_at FROM evidence WHERE case_id=? ORDER BY created_at DESC", (c["id"],))]
         c["findings"] = [dict(r) for r in con.execute("SELECT * FROM findings WHERE case_id=? ORDER BY created_at DESC", (c["id"],))]
         c["visual_assessments"] = [dict(r) for r in con.execute("SELECT * FROM visual_assessments WHERE case_id=? ORDER BY created_at DESC, rowid DESC", (c["id"],))]
+        quick = con.execute("SELECT result_json FROM rapid_reports WHERE case_id=?", (c["id"],)).fetchone()
+    c["quick_report"] = json.loads(quick["result_json"]) if quick else None
+    if c["quick_report"] is not None:
+        q = c["quick_report"]
+        q.setdefault("automatic_repair_scenario",build_automatic_quote(q.get("issues",[])))
+        q.setdefault("illustrative_construction_example",reference_scenario(60,"sierra","D",illustrative=True))
+        c["quick_findings_need_sync"] = not any(
+            x.get("origin") == "quick_ai" for x in c["findings"]
+        ) and bool(q.get("issues",[]))
+    else:
+        c["quick_findings_need_sync"] = False
     c["visual_condition"] = evaluate_condition(c["asset_type"], c["evidence"], c["visual_assessments"], c["findings"])
     accepted = [x for x in c["findings"] if x["state"] == "confirmado"]
     deductions = sum(max(0, float(x["adjustment"])) for x in accepted)
