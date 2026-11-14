@@ -142,9 +142,13 @@ def serialize_case(row):
         q = c["quick_report"]
         q.setdefault("automatic_repair_scenario",build_automatic_quote(q.get("issues",[])))
         q.setdefault("illustrative_construction_example",reference_scenario(60,"sierra","D",illustrative=True))
-        c["quick_findings_need_sync"] = not any(
-            x.get("origin") == "quick_ai" for x in c["findings"]
-        ) and bool(q.get("issues",[]))
+        indexed={(x.get("evidence_id"),x.get("category"))
+                 for x in c["findings"] if x.get("origin")=="quick_ai"}
+        c["quick_findings_need_sync"] = any(
+            (x.get("evidence_id"),x.get("category")) not in indexed
+            for x in q.get("issues",[]) if isinstance(x,dict) and
+            x.get("evidence_id") and x.get("category")
+        )
     else:
         c["quick_findings_need_sync"] = False
     c["visual_condition"] = evaluate_condition(c["asset_type"], c["evidence"], c["visual_assessments"], c["findings"])
