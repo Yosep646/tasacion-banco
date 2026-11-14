@@ -14,6 +14,7 @@ from vision_service import analyze_photo, evaluate_condition, guided_shots, simu
 from yolo_onnx import predict_cracks
 from yolo_defects import detect_defects
 from yolo_paint import detect_paint
+from surface_segmentation import segment_surfaces, model_path as surface_model_path, MODEL_SHA256 as SURFACE_MODEL_SHA256
 from inspection_taxonomy import public_capabilities, improvement_for
 from valuation_reference import estimate_property_scenario
 from official_reference import official_unit_values, reference_scenario
@@ -218,7 +219,7 @@ class ReviewIn(BaseModel):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "tasacion-visual", "models": {"vivienda_fisuras": bool(os.getenv("YOLO_VIVIENDA_WEIGHTS")), "generico": bool(os.getenv("YOLO_WEIGHTS"))}, "vision_enabled": bool(os.getenv("OPENAI_API_KEY")), "yolo_cpu_enabled": os.getenv("YOLO_CPU_ENABLED") == "1", "multiclass_yolo_enabled": os.getenv("YOLO_DEFECT5_ENABLED") == "1", "paint_experimental_enabled": os.getenv("YOLO_PAINT_ENABLED") == "1" and len(os.getenv("YOLO_PAINT_SHA256","")) == 64}
+    return {"status": "ok", "service": "tasacion-visual", "models": {"vivienda_fisuras": bool(os.getenv("YOLO_VIVIENDA_WEIGHTS")), "generico": bool(os.getenv("YOLO_WEIGHTS"))}, "vision_enabled": bool(os.getenv("OPENAI_API_KEY")), "yolo_cpu_enabled": os.getenv("YOLO_CPU_ENABLED") == "1", "multiclass_yolo_enabled": os.getenv("YOLO_DEFECT5_ENABLED") == "1", "surface_segmentation_enabled": os.getenv("SURFACE_SEGMENTATION_ENABLED") == "1", "paint_experimental_enabled": os.getenv("YOLO_PAINT_ENABLED") == "1" and len(os.getenv("YOLO_PAINT_SHA256","")) == 64}
 
 def _model_cache_status(file_path, expected_sha256=None):
     """Read-only readiness: never download model weights from a health check."""
@@ -239,11 +240,13 @@ def model_readiness(req: Request):
     auth(req)
     from yolo_defects import model_path as defect5_model_path, PINNED_SHA256
     from yolo_onnx import model_dir as crack_model_dir, NAME as CRACK_MODEL
+    surfaces_enabled=os.getenv("SURFACE_SEGMENTATION_ENABLED")=="1"
     defect5_enabled=(os.getenv("YOLO_CPU_ENABLED")=="1" and os.getenv("YOLO_DEFECT5_ENABLED")=="1")
     paint_sha=os.getenv("YOLO_PAINT_SHA256","").lower()
     paint_enabled=(os.getenv("YOLO_CPU_ENABLED")=="1" and os.getenv("YOLO_PAINT_ENABLED")=="1"
                    and len(paint_sha)==64 and all(c in "0123456789abcdef" for c in paint_sha))
     return {
+        "surface_segmentation":{"configured":surfaces_enabled,"state":_model_cache_status(surface_model_path(),SURFACE_MODEL_SHA256) if surfaces_enabled else "disabled","classes":["pared","piso","techo"],"model":"SegFormer-B0 ADE20K ONNX INT8","note":"Áreas de píxeles, no m² físicos; requiere revisión visual."},
         "yolo_defect5":{
             "configured":defect5_enabled,
             "state":_model_cache_status(defect5_model_path(),PINNED_SHA256) if defect5_enabled else "disabled",
@@ -535,7 +538,8 @@ async def quick_inspection(req: Request, exterior: UploadFile = File(...),
     actor = auth(req, write=True)
     can_yolo = os.getenv("YOLO_CPU_ENABLED") == "1"
     can_vision = bool(os.getenv("OPENAI_API_KEY"))
-    if not can_yolo and not can_vision:
+    can_surfaces = os.getenv("SURFACE_SEGMENTATION_ENABLED") == "1"
+    if not can_yolo and not can_vision and not can_surfaces:
         raise HTTPException(503, "No hay un modelo de visión configurado para analizar fotografías")
     case_id = str(uuid.uuid4())
     title = "Inspección rápida " + datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
