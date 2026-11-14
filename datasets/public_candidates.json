@@ -1,6 +1,6 @@
 {
   "updated_on": "2026-11-14",
-  "status": "candidate_sources_not_downloaded",
+  "status": "public_paint_dataset_downloaded_and_trained_candidate_other_sources_pending",
   "note": "Las licencias se muestran como declara la fuente; verificar procedencia, permisos de terceros y equivalencia visual antes de importar.",
   "sources": [
     {
@@ -66,7 +66,51 @@
         "pintura_deteriorada"
       ],
       "annotations": "COCO bounding boxes",
-      "review_required": "Convertir COCO a YOLO y revisar que paint_defect sea la clase correcta; los tipos de superficies varían."
+      "review_required": "Convertir COCO a YOLO y revisar que paint_defect sea la clase correcta; los tipos de superficies varían.",
+      "first_training": {
+        "run_id": 43603967327,
+        "images_train": 142,
+        "images_validation": 36,
+        "images_test": 14,
+        "AP50": 0.28174132629597537,
+        "recall": 0.2777777777777778,
+        "gate_passed": false,
+        "epochs": 8
+      },
+      "download_status": "downloaded_in_2026-11-14_GitHub_Actions_ephemeral_runner",
+      "annotation_label_confirmed": "Paint_defect; COCO id=5"
+    },
+    {
+      "name": "Roof Detection (metal/concrete)",
+      "url": "https://universe.roboflow.com/sistemas-de-viso/roof-ykkd2-bhawb",
+      "provider": "Roboflow Universe",
+      "license_declared": "CC BY 4.0",
+      "published_classes": [
+        "Cement Roof",
+        "Concrete roof",
+        "Metal roof",
+        "Other roof"
+      ],
+      "candidate_for": [
+        "calamina_visible",
+        "techo_concreto_visible"
+      ],
+      "annotations": "object_detection",
+      "review_required": "Metal roof NO es sinónimo automático de calamina. Revisar muestras, licencia y exportación; no se descargó por requerir acceso."
+    },
+    {
+      "name": "YOLOv8 Indoor Door Detection (referencia)",
+      "url": "https://github.com/AashishSaini16/YOLOv8-Indoor-Door-Detection",
+      "provider": "GitHub / Roboflow Universe",
+      "license_declared": "Dataset original declarado CC BY 4.0, falta verificar fuente exacta",
+      "published_classes": [
+        "door"
+      ],
+      "candidate_for": [
+        "puerta_visible"
+      ],
+      "annotations": "object_detection",
+      "review_required": "El repositorio muestra entrenamiento y métricas, pero no proporciona los pesos ni dataset directamente; no inferir ausencia de puertas."
     }
   ],
   "missing_sources_for": [
