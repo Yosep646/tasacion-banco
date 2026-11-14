@@ -143,11 +143,22 @@ Estas cifras son datos reales del archivo COCO original; no se han inventado eti
 |---|---:|---:|---:|---:|---:|---|
 | [1. YOLO26n](https://github.com/Yosep646/tasacion-banco/actions/runs/43603967327) | 8 | 320 | 0,282 | 0,577 | 0,278 | No aprobado |
 | [2. YOLO26n](https://github.com/Yosep646/tasacion-banco/actions/runs/43604398337) | 32 | 416 | 0,478 | 0,811 | 0,389 | No aprobado: recall menor a 0,50 |
+| [3. YOLO26n](https://github.com/Yosep646/tasacion-banco/actions/runs/43605814138) | 32 | 416 | 0,482 | 0,493 | 0,500 | Aprobó umbral técnico mínimo, NO validado en campo |
+| [4. YOLO11n](https://github.com/Yosep646/tasacion-banco/actions/runs/43605831352) | 40 | 480 | 0,467 | 0,719 | 0,417 | No aprobado: recall insuficiente |
 
-Se añadió un [tercer experimento](https://github.com/Yosep646/tasacion-banco/actions/workflows/train-public-paint.yml) con YOLO11n, 40 épocas y tamaño 480. Sus métricas deben consultarse en GitHub Actions al completar su ejecución. Nunca describirlo como aprobado sin revisar el reporte.
+Se completó un entrenamiento adicional con YOLO11n, 40 épocas y tamaño 480, documentado en la tabla. Su recall fue 41,7 %, por debajo del mínimo, por lo que no se publicó.
 
 `scripts/train_public_paint.py` y `.github/workflows/train-public-paint.yml` descargan, convierten, entrenan, validan y generan un candidato experimental ONNX. `.github/workflows/verify-paint-candidate.yml` solo publica un nuevo modelo si cumple mAP50 ≥ 0,40 y recall ≥ 0,50 **en prueba independiente**, checksum, procedencia e inferencia ONNX CPU. Si un candidato no pasa, el flujo lo rechaza y no altera Render.
 
 La nueva ruta de ejecución `yolo_paint.py` está implementada, pero desactivada en producción. Solo se habilita explícitamente con `YOLO_PAINT_ENABLED=1` y `YOLO_PAINT_SHA256=<hash verificado del Release experimental>`. Nunca se configura esta variable si el candidato no ha aprobado su control técnico. Aun aprobándolo, **no constituye validación en viviendas peruanas ni tasación bancaria**.
 
 Las demás clases que no tienen fotografías etiquetadas suficientes — pisos rotos, puertas/vanos, tarrajeo, ladrillo y calamina/concreto — conservan el estado `pendiente_de_datos`. No inferirlas por ausencia de detección ni presentar modelos ficticios.
+
+
+### Publicación experimental y seguridad del informe
+
+La ejecución 3 publicó [`v0.3-paint-experimental`](https://github.com/Yosep646/tasacion-banco/releases/tag/v0.3-paint-experimental): modelo ONNX de **9.709.249 bytes**, SHA-256 `c20c6a01fac4fc32bfade1a35711c8b57cef1c9f648afc9ad0fc4e273fdd1f5d`. La prueba [ONNX real → FastAPI → PDF](https://github.com/Yosep646/tasacion-banco/actions/workflows/smoke-real-paint.yml) aprobó.
+
+**No está activado en Render**: el test independiente solo contiene 14 imágenes y la precisión del modelo aprobado técnicamente es 49,3 %; no hay validación de desempeño en viviendas peruanas. Está prohibido atribuirle confiabilidad hipotecaria basándose en esas cifras. En el backend el detector experimental está preparado para activación explícita, pero sus hallazgos se guardan en `experimental_issues` y **no afectan** `condition`, presupuesto, precio comercial ni aprobación crediticia. La interfaz y el PDF los muestran por separado con advertencia.
+
+Se añadió `GET /api/model-readiness` (autenticado) para distinguir modelo habilitado, archivo descargado y checksum verificado de una inferencia funcional. El endpoint `/health` indica configuración solamente. Ni un caché verificado ni una prueba sobre imagen sintética equivalen a precisión real.
