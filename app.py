@@ -546,14 +546,14 @@ async def quick_inspection(req: Request, exterior: UploadFile = File(...),
                 paint_issues, paint_overlay = await run_in_threadpool(detect_paint,str(image_path))
                 if result is None:
                     result={
-                        "condition":"requiere_mejoras" if paint_issues else "no_determinable",
-                        "summary":"Análisis experimental de pintura completado.",
+                        "condition":"no_determinable",
+                        "summary":"Análisis exploratorio de pintura completado; resultados no validados en campo.",
                         "materials":[],"issues":[],"limitations":[],
                         "method":"yolo_paint_experimental",
                     }
                 if paint_issues:
                     for issue in paint_issues:
-                        result["issues"].append({
+                        result.setdefault("experimental_issues",[]).append({
                             "category":issue["category"],
                             "severity":"no_determinada",
                             "description":issue["description"]+" (confianza "+str(round(issue["confidence"]*100))+"%)",
@@ -562,8 +562,8 @@ async def quick_inspection(req: Request, exterior: UploadFile = File(...),
                             "box":issue["box"],
                             "origin":"yolo_paint_experimental",
                         })
-                    result["condition"]="requiere_mejoras"
-                    result["method"] += "+yolo_paint_experimental"
+                    if "yolo_paint_experimental" not in result["method"]:
+                        result["method"] += "+yolo_paint_experimental"
                 overlay_file=UPLOADS/(photo["id"]+"-yolo.jpg")
                 if overlay_file.exists():
                     with Image.open(overlay_file) as existing:
