@@ -14,7 +14,7 @@ from inspection_taxonomy import PRETRAINED_5, CLASSES
 
 ASSET_URL="https://github.com/Yosep646/tasacion-banco/releases/download/v0.2-defect5-onnx/"
 ASSET="vivienda-defectos-5.onnx"
-PINNED_SHA256="849148feb9a15a5b1d02ae5477befe3248f35f9305bd1e188a9035000d69397a"
+PINNED_SHA256="2931308c585294a4c2098bafaa08809d10de8b41cee9b09dbdc8d31fe2a77746"
 LABELS=["crack","mold","peeling_paint","stairstep_crack","water_seepage"]
 _sessions={}
 _lock=threading.Lock()
