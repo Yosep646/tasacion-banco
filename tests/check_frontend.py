@@ -81,6 +81,24 @@ for required in (
 ):
     assert required in html, "Falta bloque de simulación automática: " + required
 assert "'No calculado para esta vivienda'" not in html
+# The advanced case tabs now consume the stored quick YOLO report directly.
+for required in (
+    'current.quick_findings_need_sync',
+    '/sync-quick-report',
+    'const q=c.quick_report||null',
+    'Reparaciones · escenario ilustrativo',
+    'Hallazgos registrados automáticamente',
+    'Gravedad no determinada',
+    'class="case-manual-details"',
+    'Resultado económico de la evaluación rápida',
+    'PDF de evaluación YOLO',
+    'JSON del análisis',
+    '/quick-report.pdf',
+):
+    if required.lower() == 'gravedad no determinada':
+        assert 'gravedad no determinada' in html, required
+    else:
+        assert required in html, required
 assert html.count('id="exteriorFile"') == 1
 assert html.count('id="interiorFile"') == 1
 
