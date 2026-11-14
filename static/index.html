@@ -458,7 +458,7 @@ function renderQuickStart(){
  '<section class="one-info-card one-status-card"><h3><span class="one-info-icon">▥</span> Estado del análisis</h3>'+
  '<div class="one-status-chips"><span class="'+(yoloCpuEnabled?"one-status-good":"")+'">'+(multiclassYoloEnabled?"YOLO 5 defectos configurado":yoloCpuEnabled?"YOLO fisuras configurado":"YOLO no disponible")+'</span><span>▧ 1–2 fotos</span></div><p class="one-model-ready">'+
  (modelReadiness?.yolo_defect5?.state==="cached_verified"?"Modelo multiclase descargado; inferencia pendiente de cada fotografía.":multiclassYoloEnabled?"Modelo multiclase configurado; se descargará y verificará al analizar la primera imagen.":yoloCpuEnabled?"Detector de fisuras configurado; los demás daños necesitan un modelo verificado.":"Sin YOLO activo.")+
- '</p></section>''+
+ '</p></section>'+
  '<section class="one-info-card one-model-card"><h3><span class="one-info-icon">▱</span> Alcance del modelo</h3><p>YOLO multiclase reconoce cinco defectos; pisos, puertas y tarrajeo todavía requieren entrenamiento validado. La validación final corresponde a un profesional.</p></section></aside></div>';
  const form=$('quickForm');
  function updatePreview(kind){
