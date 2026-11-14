@@ -23,6 +23,8 @@ from repair_pricing import build_automatic_quote
 from starlette.concurrency import run_in_threadpool
 from fastapi import BackgroundTasks
 from datetime import timedelta
+import threading
+import tempfile
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
@@ -109,6 +111,38 @@ def init_db():
                     con.execute("INSERT INTO users VALUES (?,?,?,?)", (role, salt, digest, role))
 
 init_db()
+
+def _one_time_multimodal_probe():
+    """Operator-enabled one-shot probe. Only categorical diagnostics enter logs."""
+    if not os.getenv("OPENAI_API_KEY"):
+        print('GPT_DIAGNOSTIC {"status":"missing_key"}', flush=True)
+        return
+    with tempfile.TemporaryDirectory(prefix="tasacion-vision-probe-") as folder:
+        image_path = Path(folder)/"synthetic.jpg"
+        Image.new("RGB", (256, 256), (222, 220, 215)).save(image_path, "JPEG")
+        try:
+            analyze_photo(str(image_path), "Imagen sintética de diagnóstico", "vivienda")
+        except VisionProviderError as exc:
+            print("GPT_DIAGNOSTIC " + json.dumps({
+                "status":"provider_error", "reason":exc.reason,
+                "provider_status":exc.provider_status,
+            }, separators=(",", ":")), flush=True)
+        except (OSError, RuntimeError, ValueError, TypeError):
+            print('GPT_DIAGNOSTIC {"status":"other_error"}', flush=True)
+        else:
+            print('GPT_DIAGNOSTIC {"status":"provider_ok"}', flush=True)
+
+
+@app.on_event("startup")
+def start_operator_multimodal_probe():
+    # Disabled by default. Enable temporarily for a single operator-requested
+    # Render deployment, then turn it off again to avoid repeated API charges.
+    if os.getenv("GPT_DIAGNOSTIC_ON_STARTUP")=="1":
+        threading.Thread(
+            target=_one_time_multimodal_probe, name="gpt-vision-diagnostic",
+            daemon=True
+        ).start()
+
 
 def auth(req: Request, write=False, review=False):
     username = req.session.get("username")
