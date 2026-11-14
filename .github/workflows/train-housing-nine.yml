@@ -1,0 +1,75 @@
+name: Train remaining nine housing classes
+on:
+  workflow_dispatch:
+    inputs:
+      epochs:
+        description: "Training epochs (CPU is slow; use a GPU runner for full training)"
+        required: true
+        default: "15"
+        type: string
+permissions:
+  contents: read
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install CPU YOLO
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch torchvision
+          python -m pip install "ultralytics>=8.4,<9" "pyyaml>=6,<7" "Pillow>=10,<13"
+      - name: Retrieve user-authorized labeled dataset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p /tmp/housing-labels
+          if ! gh release view housing-training-data-v1 >/dev/null 2>&1; then
+            echo "::error::No verified labeled training data release: housing-training-data-v1. This is NOT a model training success."
+            exit 1
+          fi
+          gh release download housing-training-data-v1 --pattern 'housing-dataset.zip' --dir /tmp/housing-labels
+          python - <<'PY'
+          from pathlib import Path
+          import zipfile
+          root=Path('.').resolve()
+          path=Path('/tmp/housing-labels/housing-dataset.zip')
+          if path.stat().st_size > 6 * 1024**3:
+              raise SystemExit('Training archive is too large')
+          with zipfile.ZipFile(path) as archive:
+              total=0
+              for member in archive.infolist():
+                  target=(root/member.filename).resolve()
+                  if not target.is_relative_to(root):
+                      raise SystemExit('Unsafe path in training zip')
+                  if not member.filename.startswith('datasets/raw/'):
+                      raise SystemExit('Training zip may only contain datasets/raw/')
+                  total += member.file_size
+                  if total > 10 * 1024**3:
+                      raise SystemExit('Training files exceed extraction quota')
+                  if (member.external_attr >> 16) & 0o170000 == 0o120000:
+                      raise SystemExit('Symlinks are not permitted')
+              archive.extractall(root)
+          PY
+      - name: Validate license, class labels and train/test isolation
+        run: python scripts/prepare_housing_dataset.py --registry datasets/sources.json --base . --output datasets/prepared --min-train-boxes 15
+      - name: Run supervised training and holdout evaluation
+        env:
+          EPOCHS: ${{ inputs.epochs }}
+        run: |
+          python scripts/train_missing_categories.py --dataset datasets/prepared/data.yaml --epochs "$EPOCHS" --output runs/housing-n9
+      - name: Preserve model metrics and candidate for manual audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: housing-nine-training-evaluation
+          path: |
+            runs/housing-n9/evaluation_report.json
+            runs/housing-n9/candidate_model.onnx
+            runs/housing-n9/holdout-test
+          if-no-files-found: warn
+          retention-days: 7
