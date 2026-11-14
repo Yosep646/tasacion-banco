@@ -543,7 +543,7 @@ body{background:#f1f5fc}
 <div class="card side-panel"><div class="side-navigation"><button class="primary" id="quickStart" type="button">⚡ &nbsp; Evaluación rápida con IA</button><button class="secondary" id="newCase" type="button">◇ &nbsp; Expediente avanzado</button></div>
 <div class="sidebar-label">BUSCAR EXPEDIENTE</div><div class="search-wrap"><span aria-hidden="true">⌕</span><input id="caseSearch" type="search" placeholder="Buscar expediente…" aria-label="Buscar expedientes"></div>
 <div class="side-title sidebar-label"><span>EXPEDIENTES RECIENTES</span><span class="side-count" id="caseCount">0</span></div><div id="caseList"></div></div>
-<div class="side-footer"><span class="side-avatar">TV</span><div class="side-user"><strong id="who">administrador</strong><small>Cuenta del sistema</small></div><button class="side-logout" id="logout" type="button" title="Cerrar sesión" aria-label="Cerrar sesión">⇥</button></div></aside>
+<div class="side-footer"><button id="downloadBackup" type="button" title="Descargar copia privada del expediente y las fotografías (solo administrador)" style="display:none;background:#20395b;color:white;border:1px solid #46658b;border-radius:9px;padding:8px" aria-label="Descargar respaldo privado">⬇ Respaldo</button><span class="side-avatar">TV</span><div class="side-user"><strong id="who">administrador</strong><small>Cuenta del sistema</small></div><button class="side-logout" id="logout" type="button" title="Cerrar sesión" aria-label="Cerrar sesión">⇥</button></div></aside>
 <main class="main-area"><div class="card" id="workspace"><div class="empty">Selecciona una evaluación para comenzar</div></div><div id="notice" role="status" aria-live="polite"></div></main>
 </div></div>
 <script>
@@ -554,9 +554,27 @@ async function request(path,options={}){let r=await fetch(path,{credentials:'sam
 const json=(method,body)=>({method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
 function note(text){$('notice').textContent=text}
 function showLogin(){ stopActivePhotoCamera(); $('mainPanel').classList.add('hide');$('loginPanel').classList.remove('hide')}
-async function boot(){try{let me=await request('/api/me');userRole=me.role;$('who').textContent=me.username;$('loginPanel').classList.add('hide');$('mainPanel').classList.remove('hide');const health=await request('/health');visionEnabled=Boolean(health.vision_enabled);yoloCpuEnabled=Boolean(health.yolo_cpu_enabled);multiclassYoloEnabled=Boolean(health.yolo_cpu_enabled&&health.multiclass_yolo_enabled);surfaceSegmentationEnabled=Boolean(health.surface_segmentation_enabled);modelReadiness=await request("/api/model-readiness").catch(()=>null);await refresh()}catch(e){showLogin()}}
+async function boot(){try{let me=await request('/api/me');userRole=me.role;$('who').textContent=me.username;$('downloadBackup').style.display=userRole==='administrador'?'inline-block':'none';$('loginPanel').classList.add('hide');$('mainPanel').classList.remove('hide');const health=await request('/health');visionEnabled=Boolean(health.vision_enabled);yoloCpuEnabled=Boolean(health.yolo_cpu_enabled);multiclassYoloEnabled=Boolean(health.yolo_cpu_enabled&&health.multiclass_yolo_enabled);surfaceSegmentationEnabled=Boolean(health.surface_segmentation_enabled);modelReadiness=await request("/api/model-readiness").catch(()=>null);await refresh()}catch(e){showLogin()}}
 $('loginForm').onsubmit=async ev=>{ev.preventDefault();try{await request('/api/login',json('POST',{username:$('user').value,password:$('pass').value}));$('pass').value='';await boot()}catch(e){$('loginError').textContent=e.message}};
 $('logout').onclick=async()=>{await request('/api/logout',{method:'POST'});showLogin()};
+$('downloadBackup').onclick=async()=>{
+  const button=$('downloadBackup');button.disabled=true;
+  note('Preparando respaldo privado de expedientes y fotografías…');
+  try{
+    const response=await fetch('/api/admin/backup',{credentials:'same-origin'});
+    if(!response.ok){
+      const info=await response.json().catch(()=>({}));
+      throw Error(typeof info.detail==='string'?info.detail:'HTTP '+response.status);
+    }
+    const blob=await response.blob(),url=URL.createObjectURL(blob),anchor=document.createElement('a');
+    anchor.href=url;
+    anchor.download='tasacion-respaldo-'+new Date().toISOString().slice(0,10)+'.zip';
+    document.body.append(anchor);anchor.click();anchor.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),10000);
+    note('Respaldo descargado. Guarda el ZIP en un lugar privado: incluye información de expedientes y fotografías.');
+  }catch(err){note('No se pudo descargar el respaldo: '+err.message)}
+  finally{button.disabled=false}
+};
 
 let stopActivePhotoCamera=()=>{};
 async function openPhotoCamera(kind,onCapture,onFallback){
