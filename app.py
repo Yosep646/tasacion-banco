@@ -6,6 +6,8 @@ import sqlite3
 import hashlib
 import hmac
 import uuid
+import tempfile
+import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 from contextlib import contextmanager
@@ -28,6 +30,7 @@ import tempfile
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
+from starlette.background import BackgroundTask
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from PIL import Image, ImageDraw, UnidentifiedImageError
@@ -265,7 +268,7 @@ class ReviewIn(BaseModel):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "tasacion-visual", "models": {"vivienda_fisuras": bool(os.getenv("YOLO_VIVIENDA_WEIGHTS")), "generico": bool(os.getenv("YOLO_WEIGHTS"))}, "vision_enabled": bool(os.getenv("OPENAI_API_KEY")), "yolo_cpu_enabled": os.getenv("YOLO_CPU_ENABLED") == "1", "multiclass_yolo_enabled": os.getenv("YOLO_DEFECT5_ENABLED") == "1", "surface_segmentation_enabled": os.getenv("SURFACE_SEGMENTATION_ENABLED") == "1", "paint_experimental_enabled": os.getenv("YOLO_PAINT_ENABLED") == "1" and len(os.getenv("YOLO_PAINT_SHA256","")) == 64}
+    return {"status": "ok", "service": "tasacion-visual", "models": {"vivienda_fisuras": bool(os.getenv("YOLO_VIVIENDA_WEIGHTS")), "generico": bool(os.getenv("YOLO_WEIGHTS"))}, "vision_enabled": _automatic_vision_enabled(), "yolo_cpu_enabled": os.getenv("YOLO_CPU_ENABLED") == "1", "multiclass_yolo_enabled": os.getenv("YOLO_DEFECT5_ENABLED") == "1", "surface_segmentation_enabled": os.getenv("SURFACE_SEGMENTATION_ENABLED") == "1", "paint_experimental_enabled": os.getenv("YOLO_PAINT_ENABLED") == "1" and len(os.getenv("YOLO_PAINT_SHA256","")) == 64}
 
 def _model_cache_status(file_path, expected_sha256=None):
     """Read-only readiness: never download model weights from a health check."""
@@ -377,6 +380,62 @@ def hero_house_asset():
 @app.get("/", response_class=HTMLResponse)
 def home():
     return FileResponse(ROOT / "static" / "index.html")
+
+@app.get("/api/admin/backup")
+def download_admin_backup(req: Request):
+    """Download a consistent SQLite snapshot and photographs (admin only).
+
+    This is a manual safeguard for Render Free, NOT persistent cloud storage.
+    The temporary archive is deleted immediately after the response.
+    """
+    actor = auth(req)
+    if actor != "administrador":
+        raise HTTPException(403, "Solo el administrador puede descargar respaldos")
+    try:
+        evidence_files = sorted(
+            (file for file in UPLOADS.iterdir() if file.is_file() and not file.is_symlink()),
+            key=lambda path: path.name,
+        )
+        total_bytes = sum(file.stat().st_size for file in evidence_files) + DB.stat().st_size
+        if total_bytes > 200 * 1024 * 1024:
+            raise HTTPException(
+                413,
+                "El respaldo supera 200 MB. Se necesita almacenamiento persistente y un sistema de copias externo.",
+            )
+    except OSError as exc:
+        raise HTTPException(500, "No se pudo preparar el respaldo") from exc
+    fd, archive_name = tempfile.mkstemp(prefix="tasacion-backup-", suffix=".zip")
+    os.close(fd)
+    try:
+        with tempfile.TemporaryDirectory(prefix="tasacion-sqlite-snapshot-") as temp:
+            snapshot = Path(temp) / "cases.sqlite3"
+            with sqlite3.connect(str(DB), timeout=20) as original, sqlite3.connect(str(snapshot)) as copy:
+                original.backup(copy)
+            with zipfile.ZipFile(archive_name, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+                archive.write(snapshot, arcname="cases.sqlite3")
+                manifest = {
+                    "format": "tasacion-backup-v1",
+                    "created_at": now(),
+                    "images_count": len(evidence_files),
+                    "contains_private_information": True,
+                    "notice": "Conservar en un lugar privado. Este archivo no equivale a respaldo automático.",
+                }
+                archive.writestr("manifest.json", json.dumps(manifest, ensure_ascii=False))
+                for file in evidence_files:
+                    # Only files already stored under our evidence directory.
+                    archive.write(file, arcname="evidence/" + file.name)
+    except (OSError, sqlite3.Error, zipfile.BadZipFile):
+        Path(archive_name).unlink(missing_ok=True)
+        raise HTTPException(500, "No se pudo generar el respaldo temporal") from None
+
+    return FileResponse(
+        archive_name,
+        media_type="application/zip",
+        filename="tasacion-respaldo-" + datetime.now(timezone.utc).strftime("%Y%m%d-%H%M") + ".zip",
+        headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"},
+        background=BackgroundTask(lambda: Path(archive_name).unlink(missing_ok=True)),
+    )
+
 
 @app.post("/api/login")
 def login(data: Login, req: Request):
