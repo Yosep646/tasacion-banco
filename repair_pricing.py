@@ -84,16 +84,19 @@ def build_automatic_quote(issues):
     """
     lines=[]
     excluded=[]
-    seen=set()
     rejected_low=0
+    # Retain the strongest candidate in each category/view independently of
+    # detection order. Never inflate costs by counting multiple YOLO boxes.
+    strongest={}
     for issue in issues:
         if not isinstance(issue,dict):continue
         category=str(issue.get("category","")).lower().strip()
         shot=str(issue.get("shot","")).strip().capitalize()
         key=(category,shot)
-        if key in seen:continue
-        seen.add(key)
         confidence=_safe_confidence(issue.get("confidence"))
+        if key not in strongest or (confidence or -1) > (strongest[key][0] or -1):
+            strongest[key]=(confidence,issue)
+    for (category,shot),(confidence,issue) in strongest.items():
         if category in EXCLUDED:
             excluded.append({"category":category,"shot":shot,"reason":EXCLUDED[category]})
             continue
@@ -139,7 +142,7 @@ def build_automatic_quote(issues):
             "RANGO ILUSTRATIVO AUTOMÁTICO de partidas visibles con confianza >=50 %. "
             "Se aplica 1 a 3 m o m² por tipo de reparación y vista, SIN medir la foto, "
             "agrupar cajas de la misma categoría ni certificar la patología. "
-            "No incluye todos los trabajos, gastos mínimos de visita, impuestos adicionales, "
+            "Los tratamientos de distintas categorías pueden superponerse y NO son sumas independientes verificadas. No incluye todos los trabajos, gastos mínimos de visita, impuestos adicionales, "
             "costos de corregir causas ni intervención estructural. "
             "El costo final exige metrados y presupuesto profesional; no es una tasación."
         ),
