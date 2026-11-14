@@ -198,3 +198,66 @@ def test_vision_never_retries_authentication_errors(monkeypatch,tmp_path):
         vision_service.analyze_photo(img,"Interior","vivienda")
     assert exc.value.reason=="authentication_failed"
     assert len(calls)==1
+
+
+def test_gpt5_mini_responses_visual_parameters(monkeypatch,tmp_path):
+    """GPT-5 mini uses a larger output budget because reasoning consumes tokens."""
+    image=tmp_path/"room.jpg"
+    Image.new("RGB",(80,80),"white").save(image,format="JPEG")
+    monkeypatch.setenv("OPENAI_API_KEY","test-only-no-real-call")
+    monkeypatch.setenv("VISION_MODEL","gpt-5-mini")
+
+    def fake_urlopen(request,timeout):
+        body=json.loads(request.data.decode("utf-8"))
+        assert request.full_url=="https://api.openai.com/v1/responses"
+        assert body["model"]=="gpt-5-mini"
+        assert body["max_output_tokens"]>=3000
+        assert body["reasoning"]["effort"]=="low"
+        assert body["input"][0]["content"][1]["type"]=="input_image"
+        data={"output":[{"content":[{"type":"output_text","text":json.dumps({
+            "condition":"no_determinable","summary":"Sin daños verificables",
+            "materials":[],"issues":[],"limitations":[]
+        })}]}]}
+        class Response:
+            def __enter__(self):return self
+            def __exit__(self,*args):return False
+            def read(self):return json.dumps(data).encode()
+        return Response()
+
+    monkeypatch.setattr(vision_service.urllib.request,"urlopen",fake_urlopen)
+    result=vision_service.analyze_photo(image,"Interior","vivienda")
+    assert result["condition"]=="no_determinable"
+
+
+def test_gpt5_mini_chat_fallback_has_max_completion_tokens(monkeypatch,tmp_path):
+    from urllib.error import HTTPError
+    from io import BytesIO
+    image=tmp_path/"room.jpg"
+    Image.new("RGB",(80,80),"white").save(image,format="JPEG")
+    monkeypatch.setenv("OPENAI_API_KEY","test-only-no-real-call")
+    monkeypatch.setenv("VISION_MODEL","gpt-5-mini")
+    calls=[]
+
+    def mocked_urlopen(request,timeout):
+        calls.append(request.full_url)
+        if request.full_url.endswith("/responses"):
+            raise HTTPError(request.full_url,400,"Bad Request",{},BytesIO(
+                b'{"error":{"code":"invalid_request_error"}}'))
+        body=json.loads(request.data.decode("utf-8"))
+        assert body["model"]=="gpt-5-mini"
+        assert body["max_completion_tokens"]>=3000
+        assert "max_tokens" not in body
+        assert body["reasoning_effort"]=="low"
+        data={"choices":[{"message":{"content":json.dumps({
+            "condition":"no_determinable","summary":"Fotografía preliminar",
+            "materials":[],"issues":[],"limitations":[]
+        })}}]}
+        class Response:
+            def __enter__(self):return self
+            def __exit__(self,*args):return False
+            def read(self):return json.dumps(data).encode()
+        return Response()
+    monkeypatch.setattr(vision_service.urllib.request,"urlopen",mocked_urlopen)
+    result=vision_service.analyze_photo(image,"Interior","vivienda")
+    assert result["summary"]=="Fotografía preliminar"
+    assert len(calls)==2
