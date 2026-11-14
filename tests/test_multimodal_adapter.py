@@ -152,6 +152,7 @@ def test_selftest_exposes_only_safe_reason(monkeypatch):
 def test_vision_falls_back_to_chat_completions_on_responses_400(monkeypatch,tmp_path):
     from urllib.error import HTTPError
     from io import BytesIO
+    monkeypatch.setenv("VISION_MODEL","gpt-4.1-mini")
     img=tmp_path/"image.jpg"
     Image.new("RGB",(128,128),"white").save(img,"JPEG")
     monkeypatch.setenv("OPENAI_API_KEY","fake-key")
