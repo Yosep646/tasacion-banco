@@ -70,6 +70,17 @@ for required in (
 assert 'class="result-two-col"' not in html[html.index('function renderQuickResults(result){'):]
 assert 'class="result-improvements"' not in html[html.index('function renderQuickResults(result){'):]
 assert "stream.getTracks().forEach(track=>track.stop())" in html
+for required in (
+    'Simulación automática de edificación (EJEMPLO)',
+    'constructionExplainer',
+    'id="referenceCardExplanation"',
+    'class="construction-source-link"',
+    'class="repair-quote-details"',
+    'id="referenceAdjust"',
+    'official-reference-adjust',
+):
+    assert required in html, "Falta bloque de simulación automática: " + required
+assert "'No calculado para esta vivienda'" not in html
 assert html.count('id="exteriorFile"') == 1
 assert html.count('id="interiorFile"') == 1
 
