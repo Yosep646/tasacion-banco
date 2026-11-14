@@ -215,3 +215,79 @@ def test_official_construction_reference_api_persists_in_pdf(monkeypatch):
     invalid=client.post("/api/cases/"+cid+"/official-construction-reference",
         json={"built_area_m2":60,"zone":"sierra","grade":"A"})
     assert invalid.status_code==422
+
+
+def test_automatic_repair_scenario_with_trusted_public_prices():
+    from repair_pricing import build_automatic_quote
+    issues=[
+        {"category":"fisura_visible","shot":"Exterior","confidence":0.74},
+        {"category":"fisura_visible","shot":"Exterior","confidence":0.36},
+        {"category":"fisura_visible","shot":"Exterior","confidence":0.90},
+    ]
+    quote=build_automatic_quote(issues)
+    assert quote["status"]=="escenario_automatico_ilustrativo"
+    assert len(quote["items"])==1
+    assert quote["illustrative_min_pen"]==23.02
+    assert quote["illustrative_max_pen"]==69.06
+    assert quote["items"][0]["unit"]=="m"
+    assert quote["items"][0]["source_url"].startswith("https://")
+    assert quote["items"][0]["quantity"] is None
+    assert quote["total_pen"] is None
+    assert quote["suggested_credit_pen"] is None
+
+
+def test_automatic_repair_excludes_structural_cracks_and_experimental_paint():
+    from repair_pricing import build_automatic_quote
+    quote=build_automatic_quote([
+        {"category":"grieta_escalonada","shot":"Exterior","confidence":0.98},
+        {"category":"pintura_deteriorada","shot":"Interior","confidence":0.97},
+        {"category":"fisura_visible","shot":"Exterior","confidence":0.36},
+    ])
+    assert quote["illustrative_min_pen"] is None
+    assert quote["illustrative_max_pen"] is None
+    assert len(quote["excluded"])==3
+    assert quote["total_pen"] is None
+    assert quote["low_confidence_excluded"]==1
+
+
+def test_automatic_repair_combines_distinct_views_and_types():
+    from repair_pricing import build_automatic_quote
+    quote=build_automatic_quote([
+        {"category":"fisura_visible","shot":"Exterior","confidence":0.8},
+        {"category":"fisura_visible","shot":"Interior","confidence":0.8},
+        {"category":"moho_visible","shot":"Interior","confidence":0.8},
+        {"category":"pintura_desprendida","shot":"Interior","confidence":0.8},
+    ])
+    assert len(quote["items"])==4
+    assert quote["illustrative_min_pen"]==163.31
+    assert quote["illustrative_max_pen"]==489.93
+
+
+def test_automatic_quote_available_in_new_and_old_reports_pdf(monkeypatch):
+    monkeypatch.setenv("YOLO_CPU_ENABLED","1")
+    monkeypatch.setenv("YOLO_DEFECT5_ENABLED","0")
+    monkeypatch.setenv("YOLO_PAINT_ENABLED","0")
+    monkeypatch.delenv("OPENAI_API_KEY",raising=False)
+    monkeypatch.setattr(app,"predict_cracks",stub_yolo)
+    client=client_login()
+    created=client.post("/api/quick-inspection",files={
+        "exterior":("fachada.jpg",photo(),"image/jpeg")})
+    assert created.status_code==201,created.text
+    body=created.json()
+    scenario=body["automatic_repair_scenario"]
+    assert scenario["illustrative_min_pen"]==23.02
+    assert scenario["illustrative_max_pen"]==69.06
+    assert body["quote"]["total_pen"] is None
+    cid=body["case_id"]
+    # Legacy reports still compute the automatic illustrative scenario.
+    with app.db() as con:
+        row=con.execute("SELECT result_json FROM rapid_reports WHERE case_id=?",(cid,)).fetchone()
+        stored=__import__("json").loads(row["result_json"])
+        stored.pop("automatic_repair_scenario",None)
+        con.execute("UPDATE rapid_reports SET result_json=? WHERE case_id=?",
+                    (__import__("json").dumps(stored),cid))
+    previous=client.get("/api/cases/"+cid+"/quick-report")
+    assert previous.status_code==200,previous.text
+    assert previous.json()["automatic_repair_scenario"]["illustrative_max_pen"]==69.06
+    pdf=client.get("/api/cases/"+cid+"/quick-report.pdf")
+    assert pdf.status_code==200 and pdf.content.startswith(b"%PDF")
