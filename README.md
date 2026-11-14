@@ -1,3 +1,13 @@
+## Estado real de producción y respaldo — 14 noviembre 2026
+
+**El despliegue actual de Render utiliza el plan Free** (comprobado en la configuración de servicio), mientras que `render.yaml` propone el plan Starter con disco persistente. En Render Free, el sistema usa SQLite y guarda fotografías bajo `TASACION_DATA`; sin disco persistente verificado, **los expedientes y las imágenes pueden desaparecer tras un nuevo despliegue o reinicio de la instancia**. Un despliegue en estado Live no corrige esta limitación.
+
+Como protección provisional, se añadió **«⬇ Respaldo»** al panel de administrador. El endpoint autenticado `GET /api/admin/backup` descarga un ZIP privado con snapshot consistente de SQLite, imágenes y manifiesto. **Este respaldo es manual y debe descargarse y custodiarse antes de cada cambio o periódicamente**; no equivale a almacenamiento persistente ni a copias automáticas. El archivo incluye información confidencial de clientes, fotografías y hashes de usuarios: no compartirlo en público.
+
+Para operar con expedientes de clientes reales de manera continua, es necesario habilitar un disco persistente compatible en Render o migrar a base de datos y almacenamiento de objetos duraderos, y probar una recuperación. No reutilizar bases de datos ajenas para esta migración.
+
+**GPT-5 mini** está configurado con `VISION_MODEL=gpt-5-mini`, pero `VISION_MULTIMODAL_ENABLED=0` mantiene el análisis automático de OpenAI en pausa debido a errores HTTP 429 observados. Los detectores YOLO y SegFormer se mantienen disponibles de manera independiente. Una llamada real al proveedor solo podrá certificarse cuando el proyecto OpenAI disponga de acceso y cuota y se reactive explícitamente la variable. No volver a utilizar una clave de OpenAI anteriormente expuesta.
+
 ## Verificación integral y visión multimodal segura — 14 noviembre 2026
 
 ### Prueba de fotografías reales (CI, no producción autenticada)
