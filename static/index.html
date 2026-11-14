@@ -506,6 +506,17 @@ body{background:#f1f5fc}
 .compact-technical p{font-size:11px;color:#7486a0;line-height:1.6}
 @media(max-width:860px){.compact-findings{grid-template-columns:1fr}.inspection-unified .result-price-grid{grid-template-columns:1fr}.inspection-unified{padding:12px}.compact-review{font-size:9px}}
 @media(max-width:570px){.result-photo img{height:125px!important}.result-photo-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.compact-finding p{margin-left:0}.quick-actions{flex-wrap:wrap}.inspection-unified-head{align-items:flex-start}}
+</style><style>
+/* Resultados automáticos primero: configuraciones profesionales no ocupan espacio */
+.inspection-unified .repair-quote-details,
+.inspection-unified .official-reference-adjust{background:#fff;border:1px solid #dce7f4;border-radius:12px;padding:13px 15px!important;margin:10px 0!important}
+.inspection-unified .repair-quote-details>summary,
+.inspection-unified .official-reference-adjust>summary{display:list-item;list-style:disclosure-closed;cursor:pointer;font-size:12px;font-weight:750;line-height:1.6;color:#174fa8}
+.inspection-unified .repair-quote-details[open]>summary,
+.inspection-unified .official-reference-adjust[open]>summary{list-style:disclosure-open;margin-bottom:12px}
+.inspection-unified .construction-source-link{display:inline-block;margin-top:6px;font-size:11px;color:#245cb1;text-decoration:underline}
+.inspection-unified .result-price-grid>div:nth-child(2){background:#f0f6ff;border-color:#cdddf5}
+.inspection-unified .result-price-grid #referenceTotal{word-break:normal;overflow-wrap:anywhere}
 </style></head><body>
 <div id="loginPanel" class="card auth hide"><div class="brand"><span class="logo">TV</span><div><h1 class="heading">Tasación Visual</h1><p class="muted">Ingreso seguro al sistema</p></div></div>
 <form id="loginForm"><div class="field"><label>Usuario</label><input id="user" autocomplete="username" required placeholder="administrador"></div><div class="field"><label>Contraseña</label><input id="pass" type="password" autocomplete="current-password" required></div><button class="primary" style="width:100%">Ingresar</button></form><p id="loginError" class="danger"></p></div>
@@ -678,7 +689,14 @@ function renderQuickResults(result){
  const repairRange=repairAvailable?money(repair.illustrative_min_pen)+' – '+money(repair.illustrative_max_pen):'Sin rango sustentable';
  const reference=result.official_construction_reference||null;
  const illustrative=result.illustrative_construction_example||null;
- const moneyText=reference?money(reference.construction_reference_pen):illustrative?money(illustrative.construction_reference_pen):'Por calcular';
+ const computedConstruction=reference||illustrative;
+ const moneyText=computedConstruction?money(computedConstruction.construction_reference_pen):'No disponible';
+ const automaticExample=!reference&&!!illustrative;
+ const constructionExplainer=reference
+   ?'Referencia calculada con '+escapeHTML(reference.built_area_m2)+' m² declarados, zona '+escapeHTML(reference.zone)+', categoría '+escapeHTML(reference.grade)+'. Sin terreno, depreciación ni valor de mercado.'
+   :automaticExample
+   ?'EJEMPLO AUTOMÁTICO: '+escapeHTML(illustrative.built_area_m2)+' m² hipotéticos · Sierra · categoría D · '+money(illustrative.unit_cost_pen_m2)+'/m². NO corresponde a la casa fotografiada.'
+   :'No existen datos suficientes para determinar el valor de esta vivienda.';
  const partial=result.status==='analisis_no_disponible';
  const grouped=new Map();
  for(const issue of issues){
@@ -712,16 +730,16 @@ function renderQuickResults(result){
  '<div class="inspection-unified-body"><div class="compact-findings">'+
  (rows||'<p class="result-empty">No hay hallazgos por encima del umbral. Esto no acredita el buen estado del inmueble.</p>')+'</div>'+
  '<div class="compact-pricing-title"><h4>Resumen económico</h4><small>Valores preliminares · PEN</small></div>'+
- '<div class="result-price-grid"><div><small>Escenario automático ilustrativo de reparaciones</small><strong class="repair-range" id="repairRange">'+escapeHTML(repairRange)+'</strong><p>'+(repairAvailable?'Ejemplo de 1 a 3 unidades por tipo de daño y vista (SIN metrado real). No es una cotización comercial.':'No hay hallazgos con precio comparable y confianza suficiente. Se requiere verificación presencial.')+'</p></div><div><small>Valor referencial de edificación (SIN TERRENO)</small><strong id="referenceTotal">'+(reference?escapeHTML(money(reference.construction_reference_pen)):'No calculado para esta vivienda')+'</strong><p>Tabla oficial CAP noviembre 2026. No equivale al precio comercial, garantía ni monto del crédito.</p></div></div>'+
- '<div class="repair-quote-details" aria-label="Detalle de reparaciones estimadas">'+
+ '<div class="result-price-grid"><div><small>Escenario automático ilustrativo de reparaciones</small><strong class="repair-range" id="repairRange">'+escapeHTML(repairRange)+'</strong><p>'+(repairAvailable?'Ejemplo de 1 a 3 unidades por tipo de daño y vista (SIN metrado real). No es una cotización comercial.':'No hay hallazgos con precio comparable y confianza suficiente. Se requiere verificación presencial.')+'</p></div><div><small id="referenceCardLabel">'+(reference?'Referencia de edificación con datos declarados':'Simulación automática de edificación (EJEMPLO)')+'</small><strong id="referenceTotal">'+escapeHTML(moneyText)+'</strong><p id="referenceCardExplanation">'+constructionExplainer+'</p><a class="construction-source-link" href="'+escapeHTML(computedConstruction?.source_url||'https://cap.org.pe/valores-unitarios-oficiales-de-edificaciones/')+'" target="_blank" rel="noopener noreferrer">Fuente: tabla oficial CAP noviembre 2026</a></div></div>'+
+ '<details class="repair-quote-details" aria-label="Detalle de reparaciones estimadas"><summary>Ver cálculo y fuentes de las reparaciones</summary>'+
  '<h4>Detalle automático de posibles reparaciones</h4>'+
  (repairAvailable?
   '<p class="repair-example-notice">Rango de ejemplo <b>'+escapeHTML(repairRange)+'</b> basado en tarifas publicadas de Perú. Supone 1–3 m o m² por partida; las fotos NO miden esas cantidades. No incluye visita mínima, corrección de causas ni diagnóstico estructural.</p>':
   '<p class="repair-example-notice">Sin rango ilustrativo: los daños disponibles no cumplen la confianza requerida o no tienen una partida aplicable.</p>')+
  ((repair?.items||[]).map(item=>'<article class="repair-line"><div><strong>'+escapeHTML(item.work)+'</strong><span>Vista: '+escapeHTML(item.shot)+' · confianza '+Math.round(Number(item.confidence)*100)+'%</span></div><div><b>'+escapeHTML(money(item.illustrative_min_pen))+' – '+escapeHTML(money(item.illustrative_max_pen))+'</b><span>'+escapeHTML(money(item.unit_price_pen))+' / '+escapeHTML(item.unit)+' · ejemplo 1–3 '+escapeHTML(item.unit)+'</span></div><p>'+escapeHTML(item.note)+'</p><a href="'+escapeHTML(item.source_url)+'" target="_blank" rel="noopener noreferrer">Fuente: '+escapeHTML(item.source)+'</a></article>').join(''))+
  ((repair?.excluded||[]).length?'<details class="repair-exclusions"><summary>Hallazgos no incluidos en el rango ('+(repair.excluded||[]).length+')</summary>'+repair.excluded.map(item=>'<p>'+escapeHTML(item.category)+' ('+escapeHTML(item.shot)+'): '+escapeHTML(item.reason)+'</p>').join('')+'</details>':'')+
- '<p class="repair-caveat">La cotización final exige medir el daño, validar el diagnóstico, verificar materiales, costos locales, impuestos y mano de obra. Las alertas experimentales quedan excluidas.</p></div>'+
- '<div class="official-reference"><h4>Calcula una referencia de construcción en S/</h4><p>Solo se necesitan el área techada real, la zona del cuadro y una categoría de ejemplo. Las fotografías no permiten verificar esas características.</p>'+
+ '<p class="repair-caveat">La cotización final exige medir el daño, validar el diagnóstico, verificar materiales, costos locales, impuestos y mano de obra. Las alertas experimentales quedan excluidas.</p></details>'+
+ '<details class="official-reference official-reference-adjust" id="referenceAdjust"><summary>¿Conoces el área real? Ajustar la simulación a tu vivienda (opcional)</summary><p>Ya se muestra arriba un ejemplo calculado automáticamente. Si conoces el área techada y la zona, puedes sustituirlo por un cálculo basado en datos declarados; la categoría sigue siendo una hipótesis no validada por foto.</p>'+
  '<form id="officialReferenceForm"><div class="official-reference-fields">'+
  '<label>Área techada real (m²)<input type="number" min="1" max="50000" step="0.01" name="built_area_m2" placeholder="Ej. 60" required value="'+(reference?escapeHTML(reference.built_area_m2):'')+'"></label>'+
  '<label>Zona del cuadro<select name="zone" required><option value="">Selecciona la zona</option>'+
@@ -729,7 +747,7 @@ function renderQuickResults(result){
  '<label>Categoría homogénea de simulación<select name="grade" required><option value="">Selecciona categoría</option>'+
  ['C','D','E','F'].map(g=>'<option value="'+g+'" '+(reference?.grade===g?'selected':'')+'>'+g+' — aproximación no verificada</option>').join('')+'</select></label></div>'+
  '<button type="submit" class="primary">Calcular monto referencial con tabla oficial</button><div id="officialReferenceMessage" role="status" aria-live="polite"></div></form>'+
- '<small>La categoría debe seleccionarse por las características de cada una de las siete partidas. Aquí se aplica una sola categoría para simplificar el ejemplo; no es una pericia. <a href="https://cap.org.pe/valores-unitarios-oficiales-de-edificaciones/" target="_blank" rel="noopener">Consulta las tablas originales CAP.</a></small></div>'+
+ '<small>La categoría debe seleccionarse por las características de cada una de las siete partidas. Aquí se aplica una sola categoría para simplificar el ejemplo; no es una pericia. <a href="https://cap.org.pe/valores-unitarios-oficiales-de-edificaciones/" target="_blank" rel="noopener">Consulta las tablas originales CAP.</a></small></details>'+
 
  '<details class="valuation-expand"><summary>Calcular escenario monetario con datos documentados (opcional)</summary><p>Si conoces el área real y un costo por m² sustentado, el sistema calculará una referencia en S/. No es un avalúo pericial ni una cifra extraída de las fotografías.</p>'+
  '<form id="scenarioForm"><div class="scenario-fields"><label>Área construida (m²)<input type="number" name="built_area_m2" min="1" max="100000" step=".01" required placeholder="Ej. 75"></label>'+
@@ -762,6 +780,10 @@ function renderQuickResults(result){
      const amount=money(value.construction_reference_pen);
      $('referenceTotal').textContent=amount;
      $('referencePreview').textContent=amount;
+     $('referenceCardLabel').textContent='Referencia de edificación con datos declarados';
+     $('referenceCardExplanation').textContent='Área declarada: '+value.built_area_m2+' m² · zona '+value.zone+' · categoría '+value.grade+' sin verificación fotográfica. No incluye terreno ni depreciación.';
+     const source=$('inspectionUnified').querySelector('.construction-source-link');
+     if(source)source.href=value.source_url;
      document.querySelector('.value-preview-kicker').textContent='REFERENCIA DE EDIFICACIÓN CON DATOS DECLARADOS';
      $('referencePreviewNote').textContent='Área declarada: '+value.built_area_m2+' m² · zona: '+value.zone+' · categoría no verificada: '+value.grade+'. No incluye terreno ni depreciación.';
      status.textContent='Referencia guardada en el informe PDF. No es una tasación comercial ni una garantía aprobada.';
@@ -779,8 +801,7 @@ function renderQuickResults(result){
    values.construction_unit_pen_m2=Number(values.construction_unit_pen_m2);
    try{
      const calc=await request('/api/cases/'+result.case_id+'/valuation-scenario',json('POST',values));
-     $('referenceTotal').textContent=money(calc.indicative_total_pen);
-     $('scenarioStatus').textContent='Escenario guardado e incluido en el informe PDF. Es una referencia aritmética, no un valor comercial certificado.';
+     $('scenarioStatus').textContent='Escenario documentado guardado en el PDF. Se mantiene separada la referencia CAP mostrada arriba; ninguno es un valor comercial certificado.';
      btn.textContent='Actualizar referencia';
    }catch(error){
      $('scenarioStatus').textContent='No se pudo calcular: '+error.message;
