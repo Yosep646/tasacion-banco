@@ -15,16 +15,18 @@ from pathlib import Path
 from PIL import Image
 
 SAMPLES = (
-    ("Exterior", "https://upload.wikimedia.org/wikipedia/commons/6/62/House_facade_2023.jpg",
-     "https://commons.wikimedia.org/wiki/File:House_facade_2023.jpg"),
-    ("Interior", "https://upload.wikimedia.org/wikipedia/commons/7/73/Living_Room_Interior_Designer_-_Picker_Online.jpg",
-     "https://commons.wikimedia.org/wiki/File:Living_Room_Interior_Designer_-_Picker_Online.jpg"),
+    ("Exterior", ("https://upload.wikimedia.org/wikipedia/commons/6/62/House_facade_2023.jpg",
+                   "https://images.pexels.com/photos/106399/pexels-photo-106399.jpeg?w=900"),
+     "Wikimedia Commons CC0 / Pexels License"),
+    ("Interior", ("https://upload.wikimedia.org/wikipedia/commons/7/73/Living_Room_Interior_Designer_-_Picker_Online.jpg",
+                   "https://images.pexels.com/photos/1457842/pexels-photo-1457842.jpeg?w=900"),
+     "Wikimedia Commons CC0 / Pexels License"),
 )
 
 
 def download_real_photo(url):
     request = urllib.request.Request(url, headers={
-        "User-Agent": "Tasacion-Banco-Image-QA/1.0 (CC0 Wikimedia Commons; validation only)",
+        "User-Agent": "Mozilla/5.0 (compatible; Tasacion-Banco-Image-QA/1.0)",
         "Accept": "image/jpeg,image/*",
     })
     with urllib.request.urlopen(request, timeout=25) as response:
@@ -65,8 +67,19 @@ def main():
 
         import app as server
 
-        photos = [(shot, download_real_photo(url), reference)
-                  for shot, url, reference in SAMPLES]
+        photos = []
+        for shot, sources, reference in SAMPLES:
+            failures = []
+            for source in sources:
+                try:
+                    image = download_real_photo(source)
+                    photos.append((shot, image, reference))
+                    break
+                except (OSError, ValueError) as exc:
+                    failures.append(type(exc).__name__)
+            else:
+                raise RuntimeError("No fue posible descargar foto real de "+shot+
+                                   ": "+", ".join(failures))
         client = TestClient(server.app)
         assert client.get("/api/cases").status_code == 401
         login = client.post("/api/login", json={
@@ -115,7 +128,7 @@ def main():
         print("PRODUCTION_SMOKE_RESULT=" + json.dumps({
             "result": "pass",
             "photographs_real": 2,
-            "source": "Wikimedia Commons CC0",
+            "source": "Wikimedia Commons CC0 or Pexels License",
             "model": "SegFormer-B0 ADE20K ONNX",
             "api_upload": True,
             "api_persisted": True,
