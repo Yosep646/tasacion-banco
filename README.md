@@ -1,3 +1,19 @@
+## Cotización automática ilustrativa de reparaciones (14/11/2026)
+
+La evaluación rápida ahora devuelve dos resultados económicos **independientes**:
+- **Rango automático ILUSTRATIVO de reparaciones:** el motor `repair_pricing.py` toma categorías YOLO con confianza de al menos 50 %, deduplica por tipo de daño y vista, compara con tarifas públicas, y presenta un ejemplo de **1 a 3 m o m² por partida**, SIN conocer la superficie real. El resultado es un escenario de costo para orientar la inspección, **no un presupuesto real, valor comercial, costo final ni aprobación de crédito**. No suma detecciones repetidas de la misma clase/vista; los trabajos de distintas clases pueden solaparse.
+- **Referencia de edificación:** calculada con área declarada, zona y categoría de las tablas oficiales CAP 2026; **no incluye terreno ni depreciación**.
+
+Tarifas documentadas para ejemplos de reparaciones:
+- Sellado superficial de mortero exterior (CYPE RYY022), **S/23,02/m**: https://peru.generadordeprecios.info/rehabilitacion/Revestimientos/RY_Preparaciones__protecciones__r/Reparaciones/RYY022_Reparacion_de_grieta_en_revestimien.html
+- Sellado superficial interior (CYPE RYY022), **S/22,29/m**: https://peru.generadordeprecios.info/rehabilitacion/Revestimientos/RY_Preparaciones__protecciones__r/Reparaciones/RYY022_Reparacion_de_grieta_en_revestimien_0_0_0_0_0_0_0_0_0.html
+- Tratamiento de humedad **solo si se confirma capilaridad** (CYPE NHM010), **S/102,88/m²**: https://peru.generadordeprecios.info/rehabilitacion/Aislamientos_e_impermeabilizaciones/NH_Tratamiento_de_humedades_por_c/Morteros/NHM010_Tratamiento_de_humedades_por_capila.html
+- Mano de obra de tratamiento superficial de moho, **S/44/m²**, y pintura desprendida, hipótesis raspado **S/13/m²** + pintura estándar con material **S/61/m²** (Vistobra Perú, tabla nov. 2026): https://vistobra.com/pe/precios/pintor
+
+La salida `automatic_repair_scenario` contiene `illustrative_min_pen`, `illustrative_max_pen`, `items`, `excluded`, URL de fuentes, descripción y exclusiones. **`quote.total_pen` permanece `null`** porque no hay un metrado ni presupuesto confirmado. Las grietas escalonadas/posiblemente estructurales se excluyen: precisan inspección profesional. Las detecciones de pintura experimental tampoco entran en el rango.
+
+**Ejemplo del primer informe mostrado:** una fisura de fachada con confianza 74 % y otra del 36 % produce una sola partida de sellado superficial exterior, **S/23,02–69,06 como ejemplo condicionado a que sea únicamente fisura del revestimiento**; no es el costo total de reparar esa vivienda. En informes previos, el backend calcula el escenario sin volver a subir fotos. El PDF lo incluye con sus advertencias.
+
 
 ## Corrección: valor de edificación en soles (14 noviembre 2026)
 
