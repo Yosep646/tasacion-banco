@@ -547,14 +547,14 @@ body{background:#f1f5fc}
 <main class="main-area"><div class="card" id="workspace"><div class="empty">Selecciona una evaluación para comenzar</div></div><div id="notice" role="status" aria-live="polite"></div></main>
 </div></div>
 <script>
-const $=id=>document.getElementById(id);let selected=null,current=null,tab='general',userRole='',visionEnabled=false,yoloCpuEnabled=false,multiclassYoloEnabled=false,modelReadiness=null;
+const $=id=>document.getElementById(id);let selected=null,current=null,tab='general',userRole='',visionEnabled=false,yoloCpuEnabled=false,multiclassYoloEnabled=false,surfaceSegmentationEnabled=false,modelReadiness=null;
 const escapeHTML=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const money=n=>'S/ '+Number(n||0).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
 async function request(path,options={}){let r=await fetch(path,{credentials:'same-origin',...options});let x=await r.json().catch(()=>({}));if(!r.ok)throw Error(typeof x.detail==='string'?x.detail:'Error HTTP '+r.status);return x}
 const json=(method,body)=>({method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
 function note(text){$('notice').textContent=text}
 function showLogin(){ stopActivePhotoCamera(); $('mainPanel').classList.add('hide');$('loginPanel').classList.remove('hide')}
-async function boot(){try{let me=await request('/api/me');userRole=me.role;$('who').textContent=me.username;$('loginPanel').classList.add('hide');$('mainPanel').classList.remove('hide');const health=await request('/health');visionEnabled=Boolean(health.vision_enabled);yoloCpuEnabled=Boolean(health.yolo_cpu_enabled);multiclassYoloEnabled=Boolean(health.yolo_cpu_enabled&&health.multiclass_yolo_enabled);modelReadiness=await request("/api/model-readiness").catch(()=>null);await refresh()}catch(e){showLogin()}}
+async function boot(){try{let me=await request('/api/me');userRole=me.role;$('who').textContent=me.username;$('loginPanel').classList.add('hide');$('mainPanel').classList.remove('hide');const health=await request('/health');visionEnabled=Boolean(health.vision_enabled);yoloCpuEnabled=Boolean(health.yolo_cpu_enabled);multiclassYoloEnabled=Boolean(health.yolo_cpu_enabled&&health.multiclass_yolo_enabled);surfaceSegmentationEnabled=Boolean(health.surface_segmentation_enabled);modelReadiness=await request("/api/model-readiness").catch(()=>null);await refresh()}catch(e){showLogin()}}
 $('loginForm').onsubmit=async ev=>{ev.preventDefault();try{await request('/api/login',json('POST',{username:$('user').value,password:$('pass').value}));$('pass').value='';await boot()}catch(e){$('loginError').textContent=e.message}};
 $('logout').onclick=async()=>{await request('/api/logout',{method:'POST'});showLogin()};
 
@@ -736,7 +736,7 @@ function renderQuickResults(result){
    const label=issue.label||action?.label||row.category.replaceAll('_',' ');
    return '<article class="compact-finding"><div class="compact-finding-main"><span class="compact-finding-mark">!</span><div><strong>'+escapeHTML(label)+'</strong><small>'+escapeHTML(row.shot)+' · '+row.count+' detección(es) · confianza máx. '+confidence+'</small></div><span class="compact-review">Por verificar</span></div><p>'+escapeHTML(action?.action||issue.improvement||'Revisión profesional necesaria')+'</p></article>';
  }).join('');
- const photos=images.map(item=>'<article class="result-photo"><img loading="lazy" src="'+escapeHTML(item.annotated_url||('/api/evidence/'+item.evidence_id))+'" alt="Análisis visual de '+escapeHTML(item.shot)+'"><div><strong>'+escapeHTML(item.shot)+'</strong><p>'+escapeHTML(item.summary||'Sin observaciones')+'</p>'+(item.segmentation_masks?'<small>Máscaras de fisuras: '+Number(item.segmentation_masks)+' · Área coloreada en píxeles (no m²)</small>':'')+'</div></article>').join('');
+ const photos=images.map(item=>'<article class="result-photo"><img loading="lazy" src="'+escapeHTML(item.annotated_url||('/api/evidence/'+item.evidence_id))+'" alt="Análisis visual de '+escapeHTML(item.shot)+'"><div><strong>'+escapeHTML(item.shot)+'</strong><p>'+escapeHTML(item.summary||'Sin observaciones')+'</p>'+(item.segmentation_masks?'<small>Máscaras de fisuras: '+Number(item.segmentation_masks)+' · Área coloreada en píxeles (no m²)</small>':'')+(item.surfaces?'<img loading="lazy" src="'+escapeHTML(item.surfaces.overlay_url)+'" alt="Pared, piso y techo segmentados"><div class="flex">'+item.surfaces.classes.map(c=>'<span class="material-chip" style="border-left:4px solid '+escapeHTML(c.color)+'">'+escapeHTML(c.label)+' · '+Number(c.percentage_image).toFixed(1)+'% de la imagen</span>').join('')+'</div><small>Porcentajes de píxeles; no m² reales.</small>':'')+'</div></article>').join('');
  $('workspace').innerHTML='<div class="quick-result-title"><div><span class="quick-eyebrow">INFORME DE INSPECCIÓN · PRELIMINAR</span><h2>Tu análisis visual está listo</h2><p>Evaluación automática basada en '+images.length+' fotografía(s). No sustituye una inspección profesional.</p></div><span class="quick-report-tag">'+(partial?'Inferencia no disponible':'Pendiente de revisión')+'</span></div>'+
  '<div class="quick-stepper" aria-label="Etapas del análisis"><div class="step is-done"><b>✓</b><span>Imágenes recibidas</span></div><div class="step is-done"><b>✓</b><span>Proceso finalizado</span></div><div class="step is-current"><b>03</b><span>Consultar informe</span></div></div>'+
  '<div class="result-status-card"><div><span class="quick-small-label">ESTADO VISUAL OBSERVADO</span><strong>'+escapeHTML(result.condition)+'</strong><p>Las conclusiones se limitan a las zonas fotografiadas.</p></div><div class="result-status-icon" aria-hidden="true">⌕</div></div>'+
@@ -879,6 +879,7 @@ if(tab==='inspeccion'){
        '<p>'+escapeHTML(v.summary||'Sin resumen')+'</p>'+
        ((v.issues||[]).some(x=>x.has_mask)?'<p class="muted"><b>Segmentación YOLOv8-seg:</b> las áreas coloreadas corresponden a posibles fisuras, no a superficie real en m².</p>':'')+
        (v.annotated_url?'<img class="inspection-photo" src="'+escapeHTML(v.annotated_url)+'" alt="Fotografía con posibles fisuras señaladas">':'')+
+       (v.surfaces?'<div class="surface-inspection"><b>Superficies segmentadas:</b><img class="inspection-photo" src="'+escapeHTML(v.surfaces.overlay_url)+'" alt="Paredes, pisos y techos coloreados">'+v.surfaces.classes.map(c=>'<span class="material-chip" style="border-left:4px solid '+escapeHTML(c.color)+'">'+escapeHTML(c.label)+' '+Number(c.percentage_image).toFixed(1)+'%</span>').join('')+'<p class="muted">Porcentajes de imagen, no m² físicos. Requiere revisión.</p></div>':'')+
        (v.materials||[]).map(x=>'<span class="material-chip">'+escapeHTML(x.name)+'</span>').join('')+
        (v.issues||[]).map(x=>'<p class="finding-line"><b>'+escapeHTML(x.category)+'</b> · '+escapeHTML(x.severity)+' — '+escapeHTML(x.description)+'<br><small>Mejora: '+escapeHTML(x.improvement)+'</small></p>').join('')+
        (v.limitations||[]).map(x=>'<p class="muted">Límite: '+escapeHTML(x)+'</p>').join('')+
@@ -897,6 +898,7 @@ if(tab==='inspeccion'){
    '<div class="inspection-body"><div class="flex" style="justify-content:space-between"><h3>'+escapeHTML(image.shot)+'</h3><span class="pill">Foto '+(i+1)+'</span></div>'+
    '<img class="inspection-photo" src="/api/evidence/'+image.id+'" alt="Fotografía adjunta de '+escapeHTML(image.shot)+'">'+
    ((yoloCpuEnabled&&c.asset_type==='vivienda')?'<button class="primary" data-yolo-cpu="'+image.id+'">Detectar fisuras con YOLO</button>':visionEnabled?'<button class="primary" data-vision="'+image.id+'">Analizar fotografía con IA multimodal</button>':'')+
+   ((surfaceSegmentationEnabled&&c.asset_type==='vivienda')?'<button type="button" class="secondary" data-surface-segment="'+image.id+'">Segmentar paredes, pisos y techos</button>':'')+
    manualForm+observations+'</div></article>';
  }).join('');
  const optional=shots.map(x=>'<span class="material-chip">'+escapeHTML(x)+'</span>').join('');
@@ -916,6 +918,13 @@ if(tab==='inspeccion'){
        await choose(c.id);note('Fotografía guardada. Puedes evaluarla sin subir las otras tres vistas.');
    }catch(ex){note(ex.message);btn.disabled=false;btn.textContent='Guardar fotografía'}
  };
+ document.querySelectorAll('[data-surface-segment]').forEach(btn=>btn.onclick=async()=>{
+   btn.disabled=true;btn.textContent='Segmentando superficies...';
+   try{
+     await request('/api/cases/'+c.id+'/segment-surfaces/'+btn.dataset.surfaceSegment,{method:'POST'});
+     await choose(c.id);note('Superficies segmentadas; verifica las máscaras.');
+   }catch(ex){note(ex.message);btn.disabled=false;btn.textContent='Segmentar paredes, pisos y techos'}
+ });
  document.querySelectorAll('[data-yolo-cpu]').forEach(btn=>btn.onclick=async()=>{
    btn.disabled=true;btn.textContent='YOLO examinando la imagen...';
    try{
