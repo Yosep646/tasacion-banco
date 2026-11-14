@@ -639,7 +639,25 @@ function renderQuickStart(){
  '<div class="one-status-chips"><span class="'+(yoloCpuEnabled?"one-status-good":"")+'">'+(multiclassYoloEnabled?"YOLO 5 defectos configurado":yoloCpuEnabled?"YOLO fisuras configurado":"YOLO no disponible")+'</span><span>▧ 1–2 fotos</span></div><p class="one-model-ready">'+
  (modelReadiness?.yolo_defect5?.state==="cached_verified"?"Modelo multiclase descargado; inferencia pendiente de cada fotografía.":multiclassYoloEnabled?"Modelo multiclase configurado; se descargará y verificará al analizar la primera imagen.":yoloCpuEnabled?"Detector de fisuras configurado; los demás daños necesitan un modelo verificado.":"Sin YOLO activo.")+
  '</p></section>'+
+ '<section class="one-info-card"><h3><span class="one-info-icon">✦</span> Visión multimodal</h3><p>'+
+ (modelReadiness?.multimodal_vision?.configured
+   ?'GPT-4.1 mini configurado; falta confirmar conexión real con OpenAI.'
+   :'GPT-4.1 mini pendiente: configura una nueva clave privada en Render, nunca en el navegador.')+
+ '</p>'+(userRole==='administrador'&&modelReadiness?.multimodal_vision?.configured
+   ?'<button type="button" class="secondary" id="multimodalSelfTest">Verificar conexión GPT (puede tener costo de API)</button><p id="multimodalSelfTestStatus" role="status"></p>'
+   :'')+'</section>'+
  '<section class="one-info-card one-model-card"><h3><span class="one-info-icon">▱</span> Alcance del modelo</h3><p>YOLO multiclase reconoce cinco defectos; pisos, puertas y tarrajeo todavía requieren entrenamiento validado. La validación final corresponde a un profesional.</p></section></aside></div>';
+ const selfTest=$('multimodalSelfTest');
+ if(selfTest)selfTest.onclick=async()=>{
+   selfTest.disabled=true;
+   const status=$('multimodalSelfTestStatus');
+   status.textContent='Verificando proveedor con imagen sintética…';
+   try{
+     const report=await request('/api/multimodal-selftest',{method:'POST'});
+     status.textContent='Conexión validada: '+report.model+'. No se enviaron fotografías privadas.';
+   }catch(e){status.textContent='No se pudo validar: '+e.message}
+   finally{selfTest.disabled=false}
+ };
  const form=$('quickForm');
  const selectedPhotos={exterior:null,interior:null};
  function setPhoto(kind,file){
