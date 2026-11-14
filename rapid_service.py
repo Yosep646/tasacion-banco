@@ -37,6 +37,8 @@ def summarize(assessments, photo_count, provider_available):
                     "improvement":str(issue.get("improvement",""))[:300],
                     "evidence_id":a["evidence_id"],
                     "confidence":issue.get("confidence"),
+                    "has_mask":bool(issue.get("has_mask",False)),
+                    "mask_coverage_percent_image":issue.get("mask_coverage_percent_image"),
                     "shot":a["shot"],
                     "label":CLASSES.get(str(issue.get("category","")),{ }).get("label",str(issue.get("category",""))),
                     "urgency":CLASSES.get(str(issue.get("category","")),{ }).get("urgency","revisar")
@@ -59,7 +61,8 @@ def summarize(assessments, photo_count, provider_available):
             })
         notes.append({"shot":a["shot"],"summary":result.get("summary",""),
                       "evidence_id":a["evidence_id"],
-                      "annotated_url":result.get("annotated_url")})
+                      "annotated_url":result.get("annotated_url"),
+                      "segmentation_masks":sum(bool(i.get("has_mask")) for i in result.get("issues",[]) if isinstance(i,dict))})
         if a.get("error"):
             errors.append(a["error"])
     if issues:
