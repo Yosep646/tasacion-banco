@@ -641,10 +641,10 @@ function renderQuickStart(){
  '</p></section>'+
  '<section class="one-info-card"><h3><span class="one-info-icon">✦</span> Visión multimodal</h3><p>'+
  (modelReadiness?.multimodal_vision?.state==='paused_quota_limited'
-   ?'GPT-4.1 mini en pausa por restricciones de la API. El análisis funciona con YOLO y segmentación local; no se simulan resultados de GPT.'
+   ?escapeHTML(modelReadiness?.multimodal_vision?.model||'GPT-5 mini')+' en pausa por restricciones de la API. El análisis funciona con YOLO y segmentación local; no se simulan resultados de GPT.'
    :modelReadiness?.multimodal_vision?.configured
-   ?'GPT-4.1 mini configurado; falta confirmar conexión real con OpenAI.'
-   :'GPT-4.1 mini pendiente: configura una nueva clave privada en Render, nunca en el navegador.')+
+   ?escapeHTML(modelReadiness?.multimodal_vision?.model||'GPT-5 mini')+' configurado; falta confirmar conexión real con OpenAI.'
+   :escapeHTML(modelReadiness?.multimodal_vision?.model||'GPT-5 mini')+' pendiente: configura una nueva clave privada en Render, nunca en el navegador.')+
  '</p>'+(userRole==='administrador'&&modelReadiness?.multimodal_vision?.configured
    ?'<button type="button" class="secondary" id="multimodalSelfTest">Verificar conexión GPT (puede tener costo de API)</button><p id="multimodalSelfTestStatus" role="status"></p>'
    :'')+'</section>'+
