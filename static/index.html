@@ -640,7 +640,9 @@ function renderQuickStart(){
  (modelReadiness?.yolo_defect5?.state==="cached_verified"?"Modelo multiclase descargado; inferencia pendiente de cada fotografía.":multiclassYoloEnabled?"Modelo multiclase configurado; se descargará y verificará al analizar la primera imagen.":yoloCpuEnabled?"Detector de fisuras configurado; los demás daños necesitan un modelo verificado.":"Sin YOLO activo.")+
  '</p></section>'+
  '<section class="one-info-card"><h3><span class="one-info-icon">✦</span> Visión multimodal</h3><p>'+
- (modelReadiness?.multimodal_vision?.configured
+ (modelReadiness?.multimodal_vision?.state==='paused_quota_limited'
+   ?'GPT-4.1 mini en pausa por restricciones de la API. El análisis funciona con YOLO y segmentación local; no se simulan resultados de GPT.'
+   :modelReadiness?.multimodal_vision?.configured
    ?'GPT-4.1 mini configurado; falta confirmar conexión real con OpenAI.'
    :'GPT-4.1 mini pendiente: configura una nueva clave privada en Render, nunca en el navegador.')+
  '</p>'+(userRole==='administrador'&&modelReadiness?.multimodal_vision?.configured
@@ -788,6 +790,10 @@ function renderQuickResults(result){
    ?'EJEMPLO AUTOMÁTICO: '+escapeHTML(illustrative.built_area_m2)+' m² hipotéticos · Sierra · categoría D · '+money(illustrative.unit_cost_pen_m2)+'/m². NO corresponde a la casa fotografiada.'
    :'No existen datos suficientes para determinar el valor de esta vivienda.';
  const partial=result.status==='analisis_no_disponible';
+ const gptInfo=result.multimodal_vision||{};
+ const gptWarning=gptInfo.status==='provider_unavailable'
+   ?'GPT multimodal no estuvo disponible ('+escapeHTML(gptInfo.reason||'error del proveedor')+'). Se muestran únicamente los resultados de los modelos locales que lograron ejecutarse.'
+   :gptInfo.status==='paused'?'GPT multimodal está en pausa; se utilizaron los modelos locales disponibles.':'';
  const grouped=new Map();
  for(const issue of issues){
    const category=String(issue.category||'').trim();
@@ -852,6 +858,7 @@ function renderQuickResults(result){
  '<p><b>Requieren entrenamiento:</b> '+(result.capabilities?.training_required||[]).map(item=>escapeHTML(item.replaceAll('_',' '))).join(', ')+'</p>'+
  (result.experimental_issues||[]).map(item=>'<p><b>Experimental, no incluido:</b> '+escapeHTML(item.label||item.category)+' · '+escapeHTML(item.shot)+'</p>').join('')+
  '</details>'+
+ (gptWarning?'<div class="quick-alert">'+gptWarning+'</div>':'')+
  (result.analysis_errors?.length?'<div class="quick-alert"><b>Advertencia:</b> '+result.analysis_errors.map(escapeHTML).join('; ')+'</div>':'')+
  '<details class="quick-limits"><summary>Alcance y limitaciones del informe</summary>'+(result.limitations||[]).map(x=>'<p>'+escapeHTML(x)+'</p>').join('')+'</details>';
  $('anotherQuick').onclick=renderQuickStart;
