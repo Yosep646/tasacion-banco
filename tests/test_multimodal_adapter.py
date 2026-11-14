@@ -99,3 +99,51 @@ def test_admin_selftest_requires_new_key_and_validates_contract(monkeypatch):
     readiness=client.get("/api/model-readiness")
     assert readiness.status_code==200
     assert readiness.json()["multimodal_vision"]["state"]=="configured_unverified"
+
+
+def test_safe_openai_error_categories_do_not_reveal_provider_message():
+    import io
+    import urllib.error
+    import pytest
+
+    cases = [
+        (401, "invalid_api_key", "authentication_failed"),
+        (403, "permission_denied", "permission_denied"),
+        (429, "insufficient_quota", "insufficient_quota"),
+        (429, "rate_limit_exceeded", "rate_limited"),
+        (400, "invalid_request_error", "invalid_request"),
+        (503, "server_error", "provider_unavailable"),
+    ]
+    for status, code, reason in cases:
+        raw = json.dumps({"error":{
+            "code":code, "message":"PRIVATE_KEY_DO_NOT_EXPOSE",
+            "type":"invalid_request_error"}}).encode()
+        err=urllib.error.HTTPError(
+            "https://api.openai.com/v1/responses", status,
+            "error", {}, io.BytesIO(raw))
+        classified=vision_service._classify_provider_error(err)
+        assert isinstance(classified, vision_service.VisionProviderError)
+        assert classified.reason==reason
+        assert classified.provider_status==status
+        assert "PRIVATE_KEY_DO_NOT_EXPOSE" not in str(classified)
+
+
+def test_selftest_exposes_only_safe_reason(monkeypatch):
+    from fastapi.testclient import TestClient
+    import app as server
+    monkeypatch.setenv("OPENAI_API_KEY","fake-key-never-show")
+    client=TestClient(server.app)
+    login=client.post("/api/login",json={
+        "username":"administrador","password":"strong-test-password"})
+    assert login.status_code==200
+    def reject(*_args):
+        raise vision_service.VisionProviderError(
+            "insufficient_quota", "La cuenta API no tiene saldo.",429)
+    monkeypatch.setattr(server,"analyze_photo",reject)
+    response=client.post("/api/multimodal-selftest")
+    assert response.status_code==503
+    detail=response.json()["detail"]
+    assert detail["reason"]=="insufficient_quota"
+    assert detail["provider_status"]==429
+    assert "saldo" in detail["message"]
+    assert "fake-key-never-show" not in response.text
