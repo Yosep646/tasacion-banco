@@ -198,6 +198,54 @@ class ReviewIn(BaseModel):
 def health():
     return {"status": "ok", "service": "tasacion-visual", "models": {"vivienda_fisuras": bool(os.getenv("YOLO_VIVIENDA_WEIGHTS")), "generico": bool(os.getenv("YOLO_WEIGHTS"))}, "vision_enabled": bool(os.getenv("OPENAI_API_KEY")), "yolo_cpu_enabled": os.getenv("YOLO_CPU_ENABLED") == "1", "multiclass_yolo_enabled": os.getenv("YOLO_DEFECT5_ENABLED") == "1", "paint_experimental_enabled": os.getenv("YOLO_PAINT_ENABLED") == "1" and len(os.getenv("YOLO_PAINT_SHA256","")) == 64}
 
+def _model_cache_status(file_path, expected_sha256=None):
+    """Read-only readiness: never download model weights from a health check."""
+    try:
+        candidate=Path(file_path)
+        if not candidate.is_file():
+            return "awaiting_first_inference"
+        if expected_sha256:
+            digest=hashlib.sha256(candidate.read_bytes()).hexdigest()
+            return "cached_verified" if hmac.compare_digest(digest, expected_sha256) else "checksum_mismatch"
+        return "cached_unverified"
+    except (OSError,ValueError):
+        return "cache_unreadable"
+
+
+@app.get("/api/model-readiness")
+def model_readiness(req: Request):
+    auth(req)
+    from yolo_defects import model_path as defect5_model_path, PINNED_SHA256
+    from yolo_onnx import model_dir as crack_model_dir, NAME as CRACK_MODEL
+    defect5_enabled=(os.getenv("YOLO_CPU_ENABLED")=="1" and os.getenv("YOLO_DEFECT5_ENABLED")=="1")
+    paint_sha=os.getenv("YOLO_PAINT_SHA256","").lower()
+    paint_enabled=(os.getenv("YOLO_CPU_ENABLED")=="1" and os.getenv("YOLO_PAINT_ENABLED")=="1"
+                   and len(paint_sha)==64 and all(c in "0123456789abcdef" for c in paint_sha))
+    return {
+        "yolo_defect5":{
+            "configured":defect5_enabled,
+            "state":_model_cache_status(defect5_model_path(),PINNED_SHA256) if defect5_enabled else "disabled",
+            "classes":["fisura_visible","grieta_escalonada","moho_visible","pintura_desprendida","humedad_visible"],
+            "note":"Configuración no implica inferencia exitosa. Se valida al analizar la primera foto.",
+        },
+        "yolo_cracks":{
+            "configured":os.getenv("YOLO_CPU_ENABLED")=="1",
+            "state":_model_cache_status(crack_model_dir()/CRACK_MODEL) if os.getenv("YOLO_CPU_ENABLED")=="1" else "disabled",
+            "note":"Modelo de respaldo; estado de cache no equivale a validación de inferencia.",
+        },
+        "yolo_paint":{
+            "configured":paint_enabled,
+            "state":_model_cache_status(
+                Path(os.getenv("TASACION_MODEL_DIR","/tmp/tasacion-models"))/"pintura-deteriorada-candidate.onnx",
+                paint_sha) if paint_enabled else "disabled",
+            "gate":"experimental_not_field_validated",
+        },
+        "excluded_classes":["piso_roto","puerta_visible","hueco_sin_puerta","pared_sin_tarrajeo",
+                            "pared_tarrajeada","ladrillo_expuesto","calamina_visible","techo_concreto_visible"],
+        "note":"Nunca interpretar ausencia de una detección como confirmación de buen estado.",
+    }
+
+
 @app.get("/api/model-capabilities")
 def model_capabilities(req: Request):
     auth(req)
