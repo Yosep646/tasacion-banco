@@ -147,3 +147,54 @@ def test_selftest_exposes_only_safe_reason(monkeypatch):
     assert detail["provider_status"]==429
     assert "saldo" in detail["message"]
     assert "fake-key-never-show" not in response.text
+
+
+def test_vision_falls_back_to_chat_completions_on_responses_400(monkeypatch,tmp_path):
+    from urllib.error import HTTPError
+    from io import BytesIO
+    img=tmp_path/"image.jpg"
+    Image.new("RGB",(128,128),"white").save(img,"JPEG")
+    monkeypatch.setenv("OPENAI_API_KEY","fake-key")
+    calls=[]
+    def fake_open(request,timeout):
+        calls.append(request.full_url)
+        if request.full_url.endswith("/responses"):
+            raise HTTPError(request.full_url,400,"Bad Request",{},BytesIO(
+                json.dumps({"error":{"code":"invalid_request_error","message":"Rejected format"}}).encode()))
+        assert request.full_url.endswith("/chat/completions")
+        body=json.loads(request.data.decode())
+        assert body["model"]=="gpt-4.1-mini"
+        assert body["messages"][1]["content"][1]["type"]=="image_url"
+        payload={"choices":[{"message":{"content":json.dumps({
+            "condition":"no_determinable","summary":"Imagen sintética",
+            "materials":[],"issues":[],"limitations":["Datos insuficientes"]
+        })}}]}
+        class Response:
+            def __enter__(self): return self
+            def __exit__(self,*args): return False
+            def read(self): return json.dumps(payload).encode()
+        return Response()
+    monkeypatch.setattr(vision_service.urllib.request,"urlopen",fake_open)
+    result=vision_service.analyze_photo(img,"Interior","vivienda")
+    assert result["summary"]=="Imagen sintética"
+    assert len(calls)==2
+    assert calls[0].endswith("/responses") and calls[1].endswith("/chat/completions")
+
+
+def test_vision_never_retries_authentication_errors(monkeypatch,tmp_path):
+    from urllib.error import HTTPError
+    from io import BytesIO
+    img=tmp_path/"image.jpg"
+    Image.new("RGB",(128,128),"white").save(img,"JPEG")
+    monkeypatch.setenv("OPENAI_API_KEY","fake-key")
+    calls=[]
+    def reject(request,timeout):
+        calls.append(request.full_url)
+        raise HTTPError(request.full_url,401,"Unauthorized",{},BytesIO(
+            json.dumps({"error":{"code":"invalid_api_key"}}).encode()))
+    monkeypatch.setattr(vision_service.urllib.request,"urlopen",reject)
+    import pytest
+    with pytest.raises(vision_service.VisionProviderError) as exc:
+        vision_service.analyze_photo(img,"Interior","vivienda")
+    assert exc.value.reason=="authentication_failed"
+    assert len(calls)==1
