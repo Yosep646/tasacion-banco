@@ -115,3 +115,65 @@ def test_queue_status_without_login_or_missing_case():
     client=login()
     response=client.get("/api/quick-inspection/jobs/00000000-0000-0000-0000-000000000000")
     assert response.status_code==404
+
+
+def test_multimodal_quota_error_does_not_stop_local_two_photo_analysis(monkeypatch):
+    """An API 429 must not block two locally analysed photos or create fake GPT findings."""
+    from vision_service import VisionProviderError
+    monkeypatch.setenv("SURFACE_SEGMENTATION_ENABLED","1")
+    monkeypatch.setenv("OPENAI_API_KEY","dummy-secret")
+    monkeypatch.setenv("VISION_MULTIMODAL_ENABLED","1")
+    monkeypatch.setenv("TASACION_LOW_MEMORY_MODE","1")
+    monkeypatch.delenv("YOLO_CPU_ENABLED",raising=False)
+    monkeypatch.setattr(app,"segment_surfaces",fake_surfaces)
+    attempted=[]
+    def unavailable(*args):
+        attempted.append(1)
+        raise VisionProviderError(
+            "rate_limited", "Límite de solicitudes alcanzado",429)
+    monkeypatch.setattr(app,"analyze_photo",unavailable)
+    client=login()
+    response=client.post("/api/quick-inspection/start",files=[
+        ("exterior",("front.jpg",photo(),"image/jpeg")),
+        ("interior",("room.jpg",photo(),"image/jpeg")),
+    ])
+    assert response.status_code==202,response.text
+    case_id=response.json()["case_id"]
+    state=client.get(f"/api/quick-inspection/jobs/{case_id}").json()
+    assert state["status"]=="completed"
+    report=state["report"]
+    assert report["images_analyzed"]==2
+    assert len(attempted)==1
+    assert report["multimodal_vision"]["status"]=="provider_unavailable"
+    assert report["multimodal_vision"]["reason"]=="rate_limited"
+    assert report["multimodal_vision"]["images_analyzed_by_multimodal"]==0
+    assert all("multimodal_visual" not in name for name in report["models"])
+    assert all(item["surfaces"] for item in report["image_summaries"])
+    assert report["property_market_value"] is None
+    assert report["human_review_required"]
+
+
+def test_pause_external_vision_but_keep_local_segmentation(monkeypatch):
+    monkeypatch.setenv("SURFACE_SEGMENTATION_ENABLED","1")
+    monkeypatch.setenv("OPENAI_API_KEY","dummy-secret")
+    monkeypatch.setenv("VISION_MULTIMODAL_ENABLED","0")
+    monkeypatch.delenv("YOLO_CPU_ENABLED",raising=False)
+    monkeypatch.setattr(app,"segment_surfaces",fake_surfaces)
+    def should_not_call(*args):
+        raise AssertionError("GPT must stay paused for automatic inspection")
+    monkeypatch.setattr(app,"analyze_photo",should_not_call)
+    client=login()
+    readiness=client.get("/api/model-readiness").json()
+    assert readiness["multimodal_vision"]["state"]=="paused_quota_limited"
+    assert readiness["multimodal_vision"]["automatic_enabled"] is False
+    response=client.post("/api/quick-inspection/start",files={
+        "exterior":("front.jpg",photo(),"image/jpeg")})
+    assert response.status_code==202,response.text
+    cid=response.json()["case_id"]
+    job=client.get(f"/api/quick-inspection/jobs/{cid}").json()
+    assert job["status"]=="completed"
+    report=job["report"]
+    assert report["multimodal_vision"]["status"]=="paused"
+    assert report["multimodal_vision"]["images_analyzed_by_multimodal"]==0
+    assert report["image_summaries"][0]["surfaces"]
+    assert report["status"]=="preliminar_automatico"
