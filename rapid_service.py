@@ -62,7 +62,8 @@ def summarize(assessments, photo_count, provider_available):
         notes.append({"shot":a["shot"],"summary":result.get("summary",""),
                       "evidence_id":a["evidence_id"],
                       "annotated_url":result.get("annotated_url"),
-                      "segmentation_masks":sum(bool(i.get("has_mask")) for i in result.get("issues",[]) if isinstance(i,dict))})
+                      "segmentation_masks":sum(bool(i.get("has_mask")) for i in result.get("issues",[]) if isinstance(i,dict)),
+                      "surfaces":result.get("surfaces")})
         if a.get("error"):
             errors.append(a["error"])
     if issues:
