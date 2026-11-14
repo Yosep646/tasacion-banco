@@ -1,0 +1,28 @@
+name: Full Photo E2E Real Images
+
+on:
+  push:
+    paths:
+      - "scripts/production_photo_smoke.py"
+      - ".github/workflows/real-photo-e2e.yml"
+      - "surface_segmentation.py"
+      - "app.py"
+      - "rapid_service.py"
+      - "vision_service.py"
+  workflow_dispatch:
+
+jobs:
+  real-photo-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install CPU dependencies
+        run: pip install -r requirements.txt httpx
+      - name: Real photographs — isolated API and real SegFormer ONNX inference
+        env:
+          PRODUCTION_PHOTO_SMOKE_ENABLED: "0"
+        run: python -m scripts.production_photo_smoke
