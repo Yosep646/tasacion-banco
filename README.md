@@ -1,3 +1,13 @@
+## Segmentación real de fisuras — 14 noviembre 2026
+
+La inferencia CPU de `yolo_onnx.py` reconstruye las **máscaras por instancia** de YOLOv8-seg cuando el archivo ONNX exportado proporciona predicciones y prototipos de máscaras. Las máscaras se proyectan de vuelta sobre la imagen sin relleno, se recortan dentro de la caja de la detección y se superponen con transparencia en el archivo de evidencia `-yolo.jpg`.
+
+- Cada detección incorpora `has_mask` y `mask_coverage_percent_image`. Este último es **porcentaje de píxeles de la fotografía**, no área de daño en m² ni metrado para presupuestos.
+- El informe rápido incorpora `segmentation_masks` por imagen y conserva los campos de segmentación en los hallazgos. Sin un segundo tensor de prototipos, las cajas se muestran normalmente y `has_mask=false`; no se simula una máscara.
+- Pruebas automatizadas: `tests/test_yolo_segmentation.py` verifica máscaras, alineación del letterbox, comportamiento sin prototipos y ausencia de detecciones falsas con un modelo ONNX simulado.
+- Las máscaras solo delimitan **posibles fisuras del modelo especializado**. El detector de cinco defectos no es un modelo de segmentación, ni SAM/SAM 2 se ha integrado. Segmentación de paredes, pisos y techos requiere modelos entrenados y evaluados adicionales.
+- Visión multimodal: `vision_service.py` continúa siendo opcional y requiere `OPENAI_API_KEY` y conectividad externa. No se puede afirmar que esté activa en producción sin una comprobación real de Render.
+
 ## Cotización automática ilustrativa de reparaciones (14/11/2026)
 
 La evaluación rápida ahora devuelve dos resultados económicos **independientes**:
