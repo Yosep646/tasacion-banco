@@ -1,0 +1,24 @@
+name: Published real paint ONNX integration smoke
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'yolo_paint.py'
+      - 'app.py'
+      - 'tests/smoke_real_paint_onnx.py'
+      - '.github/workflows/smoke-real-paint.yml'
+permissions:
+  contents: read
+jobs:
+  published-onnx-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install deployed CPU requirements
+        run: pip install -r requirements.txt httpx
+      - name: Real model download and end-to-end inference (not accuracy validation)
+        run: python tests/smoke_real_paint_onnx.py
