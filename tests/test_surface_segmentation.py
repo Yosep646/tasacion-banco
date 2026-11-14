@@ -74,3 +74,30 @@ def test_segmentation_api_requires_flag_and_persists(monkeypatch):
     stored=client.get(f"/api/cases/{cid}").json()["visual_assessments"]
     assert any("segformer_b0_ade20k_onnx" in row["result_json"] for row in stored)
     assert all(row["state"]=="pendiente" for row in stored)
+
+
+
+def test_quick_report_with_only_surface_segmenter(monkeypatch):
+    """The surface model must work without YOLO or a paid multimodal token."""
+    monkeypatch.setenv("SURFACE_SEGMENTATION_ENABLED","1")
+    monkeypatch.delenv("YOLO_CPU_ENABLED",raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY",raising=False)
+    monkeypatch.setattr(surfaces,"get_session",lambda: FakeSession())
+    client=TestClient(app.app)
+    response=client.post("/api/login",json={
+        "username":"administrador","password":"strong-test-password"})
+    assert response.status_code==200
+    image=io.BytesIO()
+    Image.new("RGB",(100,65),"white").save(image,format="JPEG")
+    result=client.post("/api/quick-inspection",files={
+        "exterior":("facade.jpg",image.getvalue(),"image/jpeg")})
+    assert result.status_code==201,result.text
+    payload=result.json()
+    assert payload["image_summaries"][0]["surfaces"]["classes"][1]["key"]=="piso"
+    assert payload["issues"]==[]
+    assert payload["property_market_value"] is None
+    assert payload["quote"]["total_pen"] is None
+    assert payload["human_review_required"]
+    case=client.get("/api/cases/"+payload["case_id"]).json()
+    assert "surfaces" in case["quick_report"]["image_summaries"][0]
+    assert case["visual_assessments"][0]["state"]=="pendiente"
