@@ -47,6 +47,29 @@ for required in (
     '/api/model-readiness',
 ):
     assert required in html, "Falta elemento del diseño integrado: " + required
+# One compact summary replaces duplicated findings/improvements/material cards.
+for required in (
+    'class="inspection-unified"',
+    'class="compact-finding"',
+    'class="compact-technical"',
+    'grouped=new Map()',
+    'id="repairRange"',
+    'id="referenceTotal"',
+    'id="takeExterior"',
+    'id="takeInterior"',
+    'id="uploadExterior"',
+    'id="uploadInterior"',
+    'id="nativeExterior"',
+    'id="nativeInterior"',
+    'openPhotoCamera(',
+    "navigator.mediaDevices?.getUserMedia",
+    'capture="environment"',
+    "photos.append('exterior',selectedPhotos.exterior",
+):
+    assert required in html, "Falta módulo compacto o captura de foto: " + required
+assert 'class="result-two-col"' not in html[html.index('function renderQuickResults(result){'):]
+assert 'class="result-improvements"' not in html[html.index('function renderQuickResults(result){'):]
+assert "cameraStream.getTracks().forEach(track=>track.stop())" in html
 assert html.count('id="exteriorFile"') == 1
 assert html.count('id="interiorFile"') == 1
 
