@@ -660,6 +660,7 @@ function renderQuickStart(){
  };
  const form=$('quickForm');
  const selectedPhotos={exterior:null,interior:null};
+ let pendingQuickCaseId=null;
  function setPhoto(kind,file){
    const input=$(kind+'File'),card=$(kind+'Card'),preview=$(kind+'Preview'),label=$(kind+'Name');
    if(preview.dataset.url){URL.revokeObjectURL(preview.dataset.url);delete preview.dataset.url}
@@ -696,24 +697,68 @@ function renderQuickStart(){
    event.preventDefault();
    if(!selectedPhotos.exterior){note('Toma una foto exterior o selecciona un archivo.');return}
    const button=$('quickAnalyzeBtn'),progress=$('quickProgress'),status=$('quickProgressText');
-   button.disabled=true;button.textContent='Analizando las fotografías…';progress.hidden=false;
-   status.textContent='Procesando fotografías y preparando el informe. El modelo puede descargarse en la primera ejecución.';
+   button.disabled=true;button.textContent='Analizando las fotografías…';
+   progress.hidden=false;progress.classList.remove('is-error');
+   status.textContent='Guardando fotografías e iniciando el análisis seguro.';
    note('');
    try{
-     const photos=new FormData();
-     photos.append('exterior',selectedPhotos.exterior,selectedPhotos.exterior.name);
-     if(selectedPhotos.interior)photos.append('interior',selectedPhotos.interior,selectedPhotos.interior.name);
-     const response=await fetch('/api/quick-inspection',{method:'POST',body:photos,credentials:'same-origin'});
-     const body=await response.json().catch(()=>({}));
-     if(!response.ok)throw Error(typeof body.detail==='string'?body.detail:'No se pudo completar el análisis (HTTP '+response.status+').');
-     selected=body.case_id;renderQuickResults(body);
+     let result=null;
+     if(pendingQuickCaseId){
+       const previous=await request('/api/quick-inspection/jobs/'+encodeURIComponent(pendingQuickCaseId));
+       if(previous.status==='completed'){
+         result=previous.report;
+       }else if(['failed','interrupted'].includes(previous.status)){
+         await request('/api/quick-inspection/jobs/'+encodeURIComponent(pendingQuickCaseId)+'/retry',{method:'POST'});
+       }
+     }else{
+       const photos=new FormData();
+       photos.append('exterior',selectedPhotos.exterior,selectedPhotos.exterior.name);
+       if(selectedPhotos.interior)photos.append('interior',selectedPhotos.interior,selectedPhotos.interior.name);
+       const response=await fetch('/api/quick-inspection/start',{
+         method:'POST',body:photos,credentials:'same-origin'
+       });
+       const started=await response.json().catch(()=>({}));
+       if(!response.ok)throw Error(typeof started.detail==='string'
+         ?started.detail:'No se pudo registrar el análisis (HTTP '+response.status+').');
+       if(!started.case_id)throw Error('El servidor no devolvió un expediente para consultar.');
+       pendingQuickCaseId=started.case_id;
+       status.textContent='Fotos guardadas. Analizando por etapas; puedes esperar sin volver a subirlas.';
+     }
+     if(!result){
+       let transientFailures=0;
+       for(let attempt=0;attempt<240;attempt++){
+         await new Promise(resolve=>setTimeout(resolve,2500));
+         let job;
+         try{
+           job=await request('/api/quick-inspection/jobs/'+encodeURIComponent(pendingQuickCaseId));
+           transientFailures=0;
+         }catch(err){
+           transientFailures++;
+           if(transientFailures>=8)throw Error('No se pudo consultar el progreso del servidor. Pulsa reintentar sin subir las fotos de nuevo.');
+           status.textContent='El servidor está respondiendo lentamente. Reconectando…';
+           continue;
+         }
+         status.textContent=job.message||'Analizando las superficies y posibles daños…';
+         if(job.status==='completed'){result=job.report;break}
+         if(job.status==='failed'||job.status==='interrupted'){
+           throw Error(job.message||'El proceso se interrumpió. Pulsa reintentar.');
+         }
+       }
+     }
+     if(!result)throw Error('El análisis aún no finalizó. Pulsa reintentar para consultar el expediente.');
+     pendingQuickCaseId=null;
+     selected=result.case_id;
+     renderQuickResults(result);
      window.allCases=await request('/api/cases');
      const count=$('caseCount');if(count)count.textContent=window.allCases.length+' registrados';
      drawCases();
-     note(body.status==='analisis_no_disponible'?'Informe generado sin inferencia de IA disponible.':'Informe visual preliminar generado.');
+     note(result.status==='analisis_no_disponible'
+       ?'Informe generado, pero la inferencia de IA no estuvo disponible.'
+       :'Informe visual preliminar generado.');
    }catch(error){
      progress.classList.add('is-error');status.textContent='No se pudo completar: '+error.message;
-     button.disabled=false;button.textContent='✦ Analizar vivienda y generar informe →';
+     button.disabled=false;button.textContent=pendingQuickCaseId
+       ?'↻ Reintentar análisis guardado':'✦ Analizar vivienda y generar informe →';
    }
  };
 }
