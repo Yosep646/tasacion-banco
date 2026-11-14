@@ -16,6 +16,7 @@ from yolo_defects import detect_defects
 from yolo_paint import detect_paint
 from inspection_taxonomy import public_capabilities, improvement_for
 from valuation_reference import estimate_property_scenario
+from official_reference import official_unit_values, reference_scenario
 from rapid_service import summarize
 from starlette.concurrency import run_in_threadpool
 
@@ -161,6 +162,11 @@ class PropertyScenario(BaseModel):
     land_area_m2: float = Field(default=0,ge=0,le=100000)
     land_unit_pen_m2: float = Field(default=0,ge=0,le=1000000)
     land_source: str = Field(default="",max_length=500)
+
+class OfficialConstructionReference(BaseModel):
+    built_area_m2: float = Field(gt=0, le=50000)
+    zone: str
+    grade: str
 
 class CreditSimulation(BaseModel):
     documented_budget: float = Field(gt=0, le=1e10)
@@ -621,6 +627,33 @@ def quick_report(case_id: str, req: Request):
     return _get_rapid_report(case_id,req)
 
 
+@app.get("/api/official-construction-values")
+def get_official_construction_values(req: Request):
+    auth(req)
+    return official_unit_values()
+
+
+@app.post("/api/cases/{case_id}/official-construction-reference")
+def set_official_construction_reference(case_id: str, data: OfficialConstructionReference, req: Request):
+    actor=auth(req,write=True)
+    require_case(case_id)
+    with db() as con:
+        row=con.execute("SELECT result_json FROM rapid_reports WHERE case_id=?",(case_id,)).fetchone()
+    if not row:
+        raise HTTPException(404,"Primero genera el informe de inspección rápida")
+    try:
+        calculation=reference_scenario(data.built_area_m2,data.zone,data.grade)
+    except ValueError as exc:
+        raise HTTPException(422,str(exc)) from exc
+    report=json.loads(row["result_json"])
+    report["official_construction_reference"]=calculation
+    with db() as con:
+        con.execute("UPDATE rapid_reports SET result_json=? WHERE case_id=?",
+                    (json.dumps(report,ensure_ascii=False),case_id))
+    log(actor,"registrar_valor_unitario_oficial_edificacion",case_id)
+    return calculation
+
+
 @app.post("/api/cases/{case_id}/valuation-scenario")
 def valuation_scenario(case_id: str, data: PropertyScenario, req: Request):
     actor=auth(req,write=True,review=True)
@@ -701,6 +734,20 @@ def quick_report_pdf(case_id: str, req: Request):
             draw(item["shot"]+" - "+item["label"]+" (requiere revisión profesional)")
             draw(item["improvement"])
         draw("Alertas sin impacto automático en condición, costos o valoración.")
+    construction=report.get("official_construction_reference")
+    if construction:
+        draw("REFERENCIA DE EDIFICACIÓN SEGÚN TABLA OFICIAL 2026",True)
+        draw("Zona: "+construction["zone"]+" | Categoría uniforme declarada: "+construction["grade"])
+        draw("Área techada declarada: "+str(construction["built_area_m2"])+" m2")
+        draw("Valor unitario referencial: S/ "+str(construction["unit_cost_pen_m2"])+" por m2")
+        draw("Referencia de edificación: S/ "+str(construction["construction_reference_pen"]),True)
+        draw("Fuente: "+construction["source_url"])
+        draw("SIN TERRENO, DEPRECIACIÓN NI VALOR COMERCIAL; categorías no verificadas por fotos.")
+    else:
+        example=reference_scenario(60,"sierra","D",illustrative=True)
+        draw("EJEMPLO DIDÁCTICO, NO VALOR DE LA VIVIENDA",True)
+        draw("Sierra, 60 m2, categoría D hipotética: S/ "+str(example["construction_reference_pen"]))
+        draw("Completa área real, zona y categoría para guardar una referencia de edificación.")
     draw("COTIZACIÓN DE MEJORAS",True)
     draw(report["quote"]["explanation"])
     for item in report["quote"]["items"]:
