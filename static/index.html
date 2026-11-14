@@ -425,6 +425,22 @@ body{background:#f1f5fc}
 .official-reference-fields input,.official-reference-fields select{display:block;width:100%;min-height:47px;margin-top:7px;border:1px solid #c9d8ee;border-radius:10px;padding:10px;background:#fff;color:#1c3555}
 #officialReferenceMessage{margin:11px 0;color:#2354a5;font-size:12px;line-height:1.5}
 @media(max-width:850px){.official-reference-fields{grid-template-columns:1fr}.value-preview{padding:18px}.value-preview-icon{display:none}}
+</style><style>
+.repair-range{font-size:clamp(18px,2vw,25px)!important;line-height:1.3}
+.repair-quote-details{padding:20px;background:#fff;border:1px solid #dce5f2;border-radius:16px;margin:14px 0 18px}
+.repair-quote-details h4{font-size:17px;color:#172b4d;margin:0 0 10px}
+.repair-example-notice{font-size:12px;line-height:1.7;color:#586c89;margin:8px 0 16px}
+.repair-line{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px 16px;padding:16px 0;border-top:1px solid #e5eaf3}
+.repair-line strong{font-size:13px;color:#1b3154;display:block;margin:0 0 5px}
+.repair-line b{font-size:15px;white-space:nowrap;color:#164dbc;display:block;text-align:right}
+.repair-line span{color:#647995;font-size:11px;line-height:1.6;display:block}
+.repair-line>p{font-size:12px;color:#6c7b8f;line-height:1.55;grid-column:1/-1;margin:0}
+.repair-line>a{font-size:12px;color:#225ad0;grid-column:1/-1;text-decoration:underline}
+.repair-exclusions{padding:12px;border:1px solid #f2d8ad;background:#fff9ed;border-radius:10px}
+.repair-exclusions summary{cursor:pointer;color:#935e17;font-size:12px;font-weight:700}
+.repair-exclusions p,.repair-caveat{font-size:12px;line-height:1.65;color:#6a7789}
+.repair-caveat{margin-top:14px}
+@media(max-width:700px){.repair-line{grid-template-columns:1fr}.repair-line b{text-align:left}}
 </style></head><body>
 <div id="loginPanel" class="card auth hide"><div class="brand"><span class="logo">TV</span><div><h1 class="heading">Tasación Visual</h1><p class="muted">Ingreso seguro al sistema</p></div></div>
 <form id="loginForm"><div class="field"><label>Usuario</label><input id="user" autocomplete="username" required placeholder="administrador"></div><div class="field"><label>Contraseña</label><input id="pass" type="password" autocomplete="current-password" required></div><button class="primary" style="width:100%">Ingresar</button></form><p id="loginError" class="danger"></p></div>
@@ -511,6 +527,9 @@ function renderQuickStart(){
 }
 function renderQuickResults(result){
  const issues=result.issues||[], materials=result.materials||[],images=result.image_summaries||[];
+ const repair=result.automatic_repair_scenario||null;
+ const repairAvailable=repair&&repair.illustrative_min_pen!==null&&repair.illustrative_max_pen!==null;
+ const repairRange=repairAvailable?money(repair.illustrative_min_pen)+' – '+money(repair.illustrative_max_pen):'Sin rango sustentable';
  const reference=result.official_construction_reference||null;
  const illustrative=result.illustrative_construction_example||null;
  const moneyText=reference?money(reference.construction_reference_pen):illustrative?money(illustrative.construction_reference_pen):'Por calcular';
@@ -541,7 +560,15 @@ function renderQuickResults(result){
  '<div><b>Pendiente de entrenamiento</b>'+(result.capabilities?.training_required||[]).map(x=>'<span class="model-pending">'+escapeHTML(x.replaceAll("_"," "))+'</span>').join('')+'</div></div>'+
  '<p>Las clases pendientes no se deducen por la ausencia de una caja. Las alertas de moho, filtración y pintura requieren revisión especial por su menor precisión.</p></details>'+
  '<div class="result-price-panel"><div class="result-section-head"><h3>Presupuesto y valor del inmueble</h3><span>Cálculo referencial</span></div>'+
- '<div class="result-price-grid"><div><small>Cotización de reparaciones</small><strong>Por cuantificar</strong><p>Faltan medidas y presupuestos verificables; el daño detectado por YOLO no da el tamaño real de reparación.</p></div><div><small>Valor referencial de edificación (SIN TERRENO)</small><strong id="referenceTotal">'+(reference?escapeHTML(money(reference.construction_reference_pen)):'No calculado para esta vivienda')+'</strong><p>Tabla oficial CAP noviembre 2026. No equivale al precio comercial, garantía ni monto del crédito.</p></div></div>'+
+ '<div class="result-price-grid"><div><small>Escenario automático ilustrativo de reparaciones</small><strong class="repair-range" id="repairRange">'+escapeHTML(repairRange)+'</strong><p>'+(repairAvailable?'Ejemplo de 1 a 3 unidades por tipo de daño y vista (SIN metrado real). No es una cotización comercial.':'No hay hallazgos con precio comparable y confianza suficiente. Se requiere verificación presencial.')+'</p></div><div><small>Valor referencial de edificación (SIN TERRENO)</small><strong id="referenceTotal">'+(reference?escapeHTML(money(reference.construction_reference_pen)):'No calculado para esta vivienda')+'</strong><p>Tabla oficial CAP noviembre 2026. No equivale al precio comercial, garantía ni monto del crédito.</p></div></div>'+
+ '<div class="repair-quote-details" aria-label="Detalle de reparaciones estimadas">'+
+ '<h4>Detalle automático de posibles reparaciones</h4>'+
+ (repairAvailable?
+  '<p class="repair-example-notice">Rango de ejemplo <b>'+escapeHTML(repairRange)+'</b> basado en tarifas publicadas de Perú. Supone 1–3 m o m² por partida; las fotos NO miden esas cantidades. No incluye visita mínima, corrección de causas ni diagnóstico estructural.</p>'+
+  '<p class="repair-example-notice">Sin rango ilustrativo: los daños disponibles no cumplen la confianza requerida o no tienen una partida aplicable.</p>')+
+ ((repair?.items||[]).map(item=>'<article class="repair-line"><div><strong>'+escapeHTML(item.work)+'</strong><span>Vista: '+escapeHTML(item.shot)+' · confianza '+Math.round(Number(item.confidence)*100)+'%</span></div><div><b>'+escapeHTML(money(item.illustrative_min_pen))+' – '+escapeHTML(money(item.illustrative_max_pen))+'</b><span>'+escapeHTML(money(item.unit_price_pen))+' / '+escapeHTML(item.unit)+' · ejemplo 1–3 '+escapeHTML(item.unit)+'</span></div><p>'+escapeHTML(item.note)+'</p><a href="'+escapeHTML(item.source_url)+'" target="_blank" rel="noopener noreferrer">Fuente: '+escapeHTML(item.source)+'</a></article>').join(''))+
+ ((repair?.excluded||[]).length?'<details class="repair-exclusions"><summary>Hallazgos no incluidos en el rango ('+(repair.excluded||[]).length+')</summary>'+repair.excluded.map(item=>'<p>'+escapeHTML(item.category)+' ('+escapeHTML(item.shot)+'): '+escapeHTML(item.reason)+'</p>').join('')+'</details>':'')+
+ '<p class="repair-caveat">La cotización final exige medir el daño, validar el diagnóstico, verificar materiales, costos locales, impuestos y mano de obra. Las alertas experimentales quedan excluidas.</p></div>'+
  '<div class="official-reference"><h4>Calcula una referencia de construcción en S/</h4><p>Solo se necesitan el área techada real, la zona del cuadro y una categoría de ejemplo. Las fotografías no permiten verificar esas características.</p>'+
  '<form id="officialReferenceForm"><div class="official-reference-fields">'+
  '<label>Área techada real (m²)<input type="number" min="1" max="50000" step="0.01" name="built_area_m2" placeholder="Ej. 60" required value="'+(reference?escapeHTML(reference.built_area_m2):'')+'"></label>'+
