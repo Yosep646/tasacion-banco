@@ -5,3 +5,10 @@ __pycache__/
 .env
 /data/
 *.pt
+
+# Photographs and labels are private training data by default
+/datasets/raw/
+/datasets/prepared/
+/runs/
+*.onnx
+*.zip
