@@ -99,3 +99,31 @@ Estas pruebas usan **imágenes sintéticas generadas para probar el pipeline**, 
 4. Versión ONNX con hash SHA256 fijado, prueba real de CPU, memoria y latencia en Render Free.
 5. Integración en el endpoint, fallback, despliegue y prueba con consentimientos y fotografías reales.
 6. Revisión humana en tasaciones y préstamos; la IA no aprueba créditos ni determina seguridad estructural.
+
+
+## Importar fotografías reales desde un proyecto público Roboflow (con licencia revisada)
+
+Se añadió `scripts/import_roboflow_source.py` y el registro `datasets/public_candidates.json`. Se identificaron tres fuentes públicas candidatas; la licencia declarada, etiquetas originales y utilidad se documentan por separado. **No se descargaron ni añadieron fotografías de esas fuentes al repositorio**, porque no hay credenciales de exportación disponibles y las clases deben revisarse antes de incorporarlas.
+
+Ejemplo orientativo tras verificar en Roboflow los IDs reales de categorías y la versión del dataset:
+
+```bash
+pip install roboflow pyyaml
+# Configura ROBOFLOW_API_KEY únicamente en tu entorno local o secreto de CI.
+python scripts/import_roboflow_source.py \
+  --workspace buildinghealth \
+  --project defect-images-property-ssd5a \
+  --version 1 \
+  --output datasets/raw/defectos_property \
+  --license "CC BY 4.0" \
+  --license-url "https://universe.roboflow.com/buildinghealth/defect-images-property-ssd5a" \
+  --attribution "Defect Images - Property, buildinghealth (versión revisada)" \
+  --class-map '{"0":"piso_roto"}' \
+  --reviewed
+```
+
+**Importante:** `"0"` en el ejemplo es solo un marcador, **NO** una asignación verificada. Debes leer el `data.yaml` original y comprobar que la clase representa superficies fracturadas, no cualquier desperfecto en el piso. El script rechaza mapeos imposibles y guarda la procedencia de cada fuente; no habilita automáticamente pesos en Render.
+
+Las imágenes reales descargadas quedan bajo `datasets/raw/`, fuera de Git. Si no hay credencial, el importador termina con un error explícito en vez de crear ejemplos inventados. Tu consentimiento para usar tus propias fotografías no otorga permisos para usar imágenes privadas de otras personas; para esas fuentes se utiliza la licencia declarada por los titulares.
+
+El otro candidato `paint-defects-roboflow-main` está en Hugging Face, declara CC BY 4.0 y distribuye imágenes con anotaciones COCO. No puede mezclarse con etiquetas YOLO hasta convertir y validar cada caja.
