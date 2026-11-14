@@ -127,3 +127,27 @@ python scripts/import_roboflow_source.py \
 Las imágenes reales descargadas quedan bajo `datasets/raw/`, fuera de Git. Si no hay credencial, el importador termina con un error explícito en vez de crear ejemplos inventados. Tu consentimiento para usar tus propias fotografías no otorga permisos para usar imágenes privadas de otras personas; para esas fuentes se utiliza la licencia declarada por los titulares.
 
 El otro candidato `paint-defects-roboflow-main` está en Hugging Face, declara CC BY 4.0 y distribuye imágenes con anotaciones COCO. No puede mezclarse con etiquetas YOLO hasta convertir y validar cada caja.
+
+
+## Ejecuciones efectivas con fotografías públicas (14/11/2026)
+
+Se descargó desde Hugging Face el dataset `imaadd05/paint-defects-roboflow-main`, cuya ficha declara CC BY 4.0, sin utilizar ninguna clave API. Un script examinó las anotaciones COCO reales y confirmó la clase `Paint_defect` (ID 5). Luego se convirtió a YOLO únicamente esta clase y se auditaron las particiones existentes. La ejecución de entrenamiento utilizó:
+
+- **Entrenamiento:** 142 fotografías con 453 cajas de pintura dañada.
+- **Validación:** 36 fotografías con 125 cajas.
+- **Prueba independiente:** 14 fotografías con 36 cajas.
+
+Estas cifras son datos reales del archivo COCO original; no se han inventado etiquetas ni imágenes para esta fase. El test es pequeño y las métricas tienen alta incertidumbre.
+
+| Experimento | Épocas | Resolución | mAP@50 | Precisión | Recall | Resultado |
+|---|---:|---:|---:|---:|---:|---|
+| [1. YOLO26n](https://github.com/Yosep646/tasacion-banco/actions/runs/43603967327) | 8 | 320 | 0,282 | 0,577 | 0,278 | No aprobado |
+| [2. YOLO26n](https://github.com/Yosep646/tasacion-banco/actions/runs/43604398337) | 32 | 416 | 0,478 | 0,811 | 0,389 | No aprobado: recall menor a 0,50 |
+
+Se añadió un [tercer experimento](https://github.com/Yosep646/tasacion-banco/actions/workflows/train-public-paint.yml) con YOLO11n, 40 épocas y tamaño 480. Sus métricas deben consultarse en GitHub Actions al completar su ejecución. Nunca describirlo como aprobado sin revisar el reporte.
+
+`scripts/train_public_paint.py` y `.github/workflows/train-public-paint.yml` descargan, convierten, entrenan, validan y generan un candidato experimental ONNX. `.github/workflows/verify-paint-candidate.yml` solo publica un nuevo modelo si cumple mAP50 ≥ 0,40 y recall ≥ 0,50 **en prueba independiente**, checksum, procedencia e inferencia ONNX CPU. Si un candidato no pasa, el flujo lo rechaza y no altera Render.
+
+La nueva ruta de ejecución `yolo_paint.py` está implementada, pero desactivada en producción. Solo se habilita explícitamente con `YOLO_PAINT_ENABLED=1` y `YOLO_PAINT_SHA256=<hash verificado del Release experimental>`. Nunca se configura esta variable si el candidato no ha aprobado su control técnico. Aun aprobándolo, **no constituye validación en viviendas peruanas ni tasación bancaria**.
+
+Las demás clases que no tienen fotografías etiquetadas suficientes — pisos rotos, puertas/vanos, tarrajeo, ladrillo y calamina/concreto — conservan el estado `pendiente_de_datos`. No inferirlas por ausencia de detección ni presentar modelos ficticios.
