@@ -18,6 +18,7 @@ from inspection_taxonomy import public_capabilities, improvement_for
 from valuation_reference import estimate_property_scenario
 from official_reference import official_unit_values, reference_scenario
 from rapid_service import summarize
+from repair_pricing import build_automatic_quote
 from starlette.concurrency import run_in_threadpool
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
@@ -621,6 +622,7 @@ def _get_rapid_report(case_id: str, req: Request):
         raise HTTPException(404, "Este expediente no tiene informe rápido")
     result=json.loads(report["result_json"])
     result.setdefault("illustrative_construction_example",reference_scenario(60,"sierra","D",illustrative=True))
+    result.setdefault("automatic_repair_scenario",build_automatic_quote(result.get("issues",[])))
     return result
 
 
@@ -750,7 +752,22 @@ def quick_report_pdf(case_id: str, req: Request):
         draw("EJEMPLO DIDÁCTICO, NO VALOR DE LA VIVIENDA",True)
         draw("Sierra, 60 m2, categoría D hipotética: S/ "+str(example["construction_reference_pen"]))
         draw("Completa área real, zona y categoría para guardar una referencia de edificación.")
-    draw("COTIZACIÓN DE MEJORAS",True)
+    draw("ESCENARIO AUTOMÁTICO ILUSTRATIVO DE REPARACIONES",True)
+    provisional=report.get("automatic_repair_scenario") or build_automatic_quote(report.get("issues",[]))
+    if provisional["illustrative_min_pen"] is not None:
+        draw("Rango DIDÁCTICO, NO COTIZACIÓN FINAL: S/ "+str(provisional["illustrative_min_pen"])+" a S/ "+str(provisional["illustrative_max_pen"]),True)
+    else:
+        draw("Sin importe sustentable en las detecciones actuales.")
+    draw(provisional["explanation"])
+    for line in provisional["items"]:
+        draw(line["shot"]+" | "+line["work"])
+        draw("Tarifa: S/ "+str(line["unit_price_pen"])+"/"+line["unit"]+"; supuesto NO MEDIDO 1 a 3 "+line["unit"])
+        draw("Ejemplo: S/ "+str(line["illustrative_min_pen"])+" a S/ "+str(line["illustrative_max_pen"]))
+        draw("Fuente: "+line["source_url"])
+        draw("Advertencia: "+line["note"])
+    for line in provisional["excluded"]:
+        draw("EXCLUIDO: "+line["category"]+" ("+line["shot"]+"): "+line["reason"])
+    draw("COTIZACIÓN DEFINITIVA",True)
     draw(report["quote"]["explanation"])
     for item in report["quote"]["items"]:
         draw(item["work"]+": S/ "+str(item["unit_price_pen"])+"/"+item["unit"]+"; falta metrado.")
