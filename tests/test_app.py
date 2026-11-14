@@ -23,6 +23,26 @@ def test_health():
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
 
+def test_model_readiness_requires_auth():
+    from unittest.mock import patch
+    assert client.get("/api/model-readiness").status_code == 401
+    assert client.post("/api/login",json={
+        "username":"administrador","password":"strong-test-password"
+    }).status_code == 200
+    with patch.dict(os.environ,{"YOLO_CPU_ENABLED":"1","YOLO_DEFECT5_ENABLED":"1","YOLO_PAINT_ENABLED":"0"}):
+        response=client.get("/api/model-readiness")
+        assert response.status_code == 200, response.text
+        body=response.json()
+        assert body["yolo_defect5"]["configured"] is True
+        assert body["yolo_defect5"]["state"] in ("cached_verified","awaiting_first_inference","checksum_mismatch","cache_unreadable")
+        assert body["yolo_paint"]["configured"] is False
+        assert "piso_roto" in body["excluded_classes"]
+    with patch.dict(os.environ,{"YOLO_CPU_ENABLED":"0","YOLO_DEFECT5_ENABLED":"1"}):
+        body=client.get("/api/model-readiness").json()
+        assert body["yolo_defect5"]["configured"] is False
+        assert body["yolo_defect5"]["state"]=="disabled"
+
+
 def test_auth_required():
     assert client.get("/api/cases").status_code == 401
 
