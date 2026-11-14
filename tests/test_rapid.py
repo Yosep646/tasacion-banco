@@ -305,3 +305,69 @@ def test_automatic_quote_available_in_new_and_old_reports_pdf(monkeypatch):
     assert previous.json()["automatic_repair_scenario"]["illustrative_max_pen"]==69.06
     pdf=client.get("/api/cases/"+cid+"/quick-report.pdf")
     assert pdf.status_code==200 and pdf.content.startswith(b"%PDF")
+
+
+def test_quick_ai_fills_advanced_case_sections_without_duplicating_or_approving(monkeypatch):
+    monkeypatch.setenv("YOLO_CPU_ENABLED","1")
+    monkeypatch.setenv("YOLO_DEFECT5_ENABLED","0")
+    monkeypatch.setenv("YOLO_PAINT_ENABLED","0")
+    monkeypatch.delenv("OPENAI_API_KEY",raising=False)
+    monkeypatch.setattr(app,"predict_cracks",stub_yolo)
+    client=client_login()
+    created=client.post("/api/quick-inspection",
+        files={"exterior":("fachada.jpg",photo(),"image/jpeg")})
+    assert created.status_code==201,created.text
+    report=created.json()
+    cid=report["case_id"]
+    case=client.get("/api/cases/"+cid)
+    assert case.status_code==200
+    data=case.json()
+    assert data["quick_report"]["case_id"]==cid
+    assert data["quick_report"]["images_analyzed"]==1
+    assert data["quick_report"]["automatic_repair_scenario"]["total_pen"] is None
+    assert len(data["evidence"])==1
+    assert len(data["visual_assessments"])==1
+    assert len(data["findings"])==1
+    assert data["findings"][0]["origin"]=="quick_ai"
+    assert data["findings"][0]["state"]=="pendiente"
+    assert data["findings"][0]["severity"]=="no_determinada"
+    assert data["findings"][0]["adjustment"]==0
+    assert data["base_value"]==0
+    assert data["quick_findings_need_sync"] is False
+    first=client.post("/api/cases/"+cid+"/sync-quick-report")
+    assert first.status_code==200
+    assert first.json()["created"]==0
+    # Keep the review untouched when synchronization is requested later.
+    fid=data["findings"][0]["id"]
+    client.put("/api/findings/"+fid+"/review",json={
+        "state":"confirmado","adjustment":0,"justification":"Verificado en inspección"})
+    resync=client.post("/api/cases/"+cid+"/sync-quick-report")
+    assert resync.status_code==200 and resync.json()["created"]==0
+    after=client.get("/api/cases/"+cid).json()
+    assert len(after["findings"])==1
+    assert after["findings"][0]["state"]=="confirmado"
+    assert after["estimated_value"]==0
+
+
+def test_legacy_quick_report_synchronizes_findings_once(monkeypatch):
+    monkeypatch.setenv("YOLO_CPU_ENABLED","1")
+    monkeypatch.setenv("YOLO_DEFECT5_ENABLED","0")
+    monkeypatch.setenv("YOLO_PAINT_ENABLED","0")
+    monkeypatch.delenv("OPENAI_API_KEY",raising=False)
+    monkeypatch.setattr(app,"predict_cracks",stub_yolo)
+    client=client_login()
+    body=client.post("/api/quick-inspection",
+        files={"exterior":("fachada.jpg",photo(),"image/jpeg")}).json()
+    cid=body["case_id"]
+    with app.db() as con:
+        con.execute("DELETE FROM findings WHERE case_id=? AND origin='quick_ai'",(cid,))
+    before=client.get("/api/cases/"+cid).json()
+    assert before["quick_findings_need_sync"] is True
+    assert before["quick_report"]["issues"]
+    first=client.post("/api/cases/"+cid+"/sync-quick-report")
+    assert first.status_code==200 and first.json()["created"]==1
+    second=client.post("/api/cases/"+cid+"/sync-quick-report")
+    assert second.status_code==200 and second.json()["created"]==0
+    after=client.get("/api/cases/"+cid).json()
+    assert after["quick_findings_need_sync"] is False
+    assert len(after["findings"])==1
