@@ -6,6 +6,7 @@ on:
       - 'yolo_defects.py'
       - 'inspection_taxonomy.py'
       - 'tests/test_defect5.py'
+      - 'tests/smoke_real_defect5_api.py'
       - '.github/workflows/test-defect5.yml'
 jobs:
   validate:
@@ -40,3 +41,6 @@ jobs:
           PY
       - name: Unit and endpoint checks
         run: python -m pytest tests/test_defect5.py -q
+
+      - name: Real five-class inference through FastAPI
+        run: python tests/smoke_real_defect5_api.py
