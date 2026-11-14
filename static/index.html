@@ -411,7 +411,7 @@ body{background:#f1f5fc}
 .model-pending{background:#fff0dc;color:#8b6328}
 .model-coverage p{font-size:12px;line-height:1.6;color:#6a7d98}
 @media(max-width:670px){.model-coverage-grid{grid-template-columns:1fr}}
-.one-model-ready{font-size:11px;line-height:1.6;color:#657994;margin:12px 0 0}</style></head><body>
+.one-model-ready{font-size:11px;line-height:1.6;color:#657994;margin:12px 0 0}.exploratory-panel{padding:20px;border:1px solid #e4c98e;background:#fffbf3;border-radius:15px;margin:16px 0}.exploratory-panel h3{color:#785017}.exploratory-panel .result-section-head span{color:#9b691b}.exploratory-intro{font-size:12px;line-height:1.65;color:#8c6c3a;margin:10px 0 16px}.exploratory-item{border-top:1px solid #eddcb9;padding:12px 0}.exploratory-item strong{font-size:13px;color:#805114}.exploratory-item span{font-size:11px;color:#986e29}.exploratory-item p{font-size:12px;color:#816740;margin:6px 0}</style></head><body>
 <div id="loginPanel" class="card auth hide"><div class="brand"><span class="logo">TV</span><div><h1 class="heading">Tasación Visual</h1><p class="muted">Ingreso seguro al sistema</p></div></div>
 <form id="loginForm"><div class="field"><label>Usuario</label><input id="user" autocomplete="username" required placeholder="administrador"></div><div class="field"><label>Contraseña</label><input id="pass" type="password" autocomplete="current-password" required></div><button class="primary" style="width:100%">Ingresar</button></form><p id="loginError" class="danger"></p></div>
 <div id="mainPanel" class="shell hide"><div class="layout">
@@ -511,6 +511,9 @@ function renderQuickResults(result){
  (rows||'<p class="result-empty">No se identificaron defectos sobre los umbrales de los modelos ejecutados. Esto no demuestra que la vivienda esté en buen estado ni que no existan otros daños.</p>')+'</section>'+
  '<section class="result-panel"><div class="result-section-head"><h3>Materiales visibles</h3></div>'+
  (materials.length?materials.map(item=>'<span class="material-chip">'+escapeHTML(item.name)+'</span>').join(''):'<p class="result-empty">Materiales no verificados por el modelo actualmente disponible.</p>')+'</section></div>'+
+ ((result.experimental_issues||[]).length?
+ '<section class="exploratory-panel"><div class="result-section-head"><h3>Alertas experimentales de pintura</h3><span>No validadas para tasación</span></div><p class="exploratory-intro">Estas sugerencias requieren revisión humana. No afectan el estado del inmueble ni su presupuesto o valoración.</p>'+
+ result.experimental_issues.map(item=>'<article class="exploratory-item"><strong>'+escapeHTML(item.label||item.category)+'</strong><span> '+escapeHTML(item.shot)+' · '+Math.round(Number(item.confidence||0)*100)+'% confianza</span><p>'+escapeHTML(item.improvement||'Verificar presencialmente')+'</p></article>').join('')+'</section>':'')+
  '<section class="result-improvements"><div class="result-section-head"><h3>Plan de mejoras recomendado</h3><span>Requiere revisión profesional</span></div>'+
  ((result.improvements||[]).length?
     '<div class="improvements-grid">'+result.improvements.map((item,i)=>'<article class="improvement-item"><span class="improvement-index">'+String(i+1).padStart(2,'0')+'</span><div><strong>'+escapeHTML(item.label||item.category)+'</strong><p><b>'+escapeHTML(item.shot)+':</b> '+escapeHTML(item.action)+'</p><small>Antes de cotizar: '+escapeHTML(item.before_quoting)+'</small></div></article>').join('')+'</div>':
