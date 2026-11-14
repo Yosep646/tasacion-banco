@@ -619,7 +619,9 @@ def _get_rapid_report(case_id: str, req: Request):
                              (case_id,)).fetchone()
     if not report:
         raise HTTPException(404, "Este expediente no tiene informe rápido")
-    return json.loads(report["result_json"])
+    result=json.loads(report["result_json"])
+    result.setdefault("illustrative_construction_example",reference_scenario(60,"sierra","D",illustrative=True))
+    return result
 
 
 @app.get("/api/cases/{case_id}/quick-report")
