@@ -26,7 +26,7 @@ jobs:
         run: python -m unittest discover -s tests -p test_public_paint.py -v
       - name: Download real licensed dataset, train and test
         run: |
-          python scripts/train_public_paint.py --epochs 8 --max-train 260 --imgsz 320 --batch 8 --output /tmp/paint-yolo-training
+          python scripts/train_public_paint.py --epochs 32 --max-train 450 --imgsz 416 --batch 8 --output /tmp/paint-yolo-training
       - name: Persist metrics, provenance, and trained candidate
         if: always()
         uses: actions/upload-artifact@v4
