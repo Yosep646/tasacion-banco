@@ -14,7 +14,7 @@ class FakeSession:
     def run(self, outputs, feed):
         assert feed["images"].shape == (1, 3, 640, 640)
         # One anchor, one class, 32 mask coefficients.
-        detections = np.zeros((1, 37, 1), dtype=np.float32)
+        detections = np.zeros((1, 37, 64), dtype=np.float32)
         detections[0, :4, 0] = [320, 320, 400, 160]
         detections[0, 4, 0] = 0.91
         detections[0, 5, 0] = 10
