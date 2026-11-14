@@ -25,7 +25,8 @@ def test_health():
 
 def test_model_readiness_requires_auth():
     from unittest.mock import patch
-    assert client.get("/api/model-readiness").status_code == 401
+    isolated = TestClient(app)
+    assert isolated.get("/api/model-readiness").status_code == 401
     assert client.post("/api/login",json={
         "username":"administrador","password":"strong-test-password"
     }).status_code == 200
@@ -44,7 +45,8 @@ def test_model_readiness_requires_auth():
 
 
 def test_auth_required():
-    assert client.get("/api/cases").status_code == 401
+    unauthenticated = TestClient(app)
+    assert unauthenticated.get("/api/cases").status_code == 401
 
 def test_create_and_review():
     assert client.post("/api/login",json={"username":"administrador","password":"strong-test-password"}).status_code == 200
