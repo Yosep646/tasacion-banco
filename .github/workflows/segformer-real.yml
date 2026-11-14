@@ -1,0 +1,44 @@
+name: SegFormer Real CPU Smoke
+on:
+  push:
+    paths:
+      - 'surface_segmentation.py'
+      - '.github/workflows/segformer-real.yml'
+  workflow_dispatch:
+
+jobs:
+  real-segmentation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install inference runtime
+        run: pip install "numpy>=1.26,<3" "Pillow>=10,<13" "onnxruntime>=1.20,<2"
+      - name: Download verified model and infer masks on CPU
+        run: |
+          python - <<'PY'
+          import tempfile
+          from pathlib import Path
+          from PIL import Image, ImageDraw
+          from surface_segmentation import segment_surfaces, download_model
+
+          print("Verified ONNX weights:", download_model())
+          with tempfile.TemporaryDirectory() as folder:
+              photo = Path(folder) / "test-room.jpg"
+              image = Image.new("RGB", (720, 480), "#deddd8")
+              draw = ImageDraw.Draw(image)
+              draw.polygon([(0,330),(720,320),(720,480),(0,480)],fill="#a98257")
+              draw.rectangle((80,100,200,290),fill="#647a88")
+              image.save(photo)
+              result, overlay, mask = segment_surfaces(photo)
+              assert result["method"] == "segformer_b0_ade20k_onnx"
+              assert overlay.size == image.size and mask.size == image.size
+              assert len(result["classes"]) == 3
+              assert all(0 <= c["percentage_image"] <= 100 for c in result["classes"])
+              assert sum(c["pixels"] for c in result["classes"]) <= 720*480
+              print([(c["label"], c["percentage_image"]) for c in result["classes"]])
+              print("Real SegFormer ONNX CPU inference complete")
+          PY
