@@ -1,0 +1,60 @@
+name: Verify and publish experimental paint candidate
+on:
+  workflow_dispatch:
+    inputs:
+      training_run:
+        description: "Successful Train public painting-defect YOLO candidate run ID"
+        required: true
+        type: string
+  workflow_run:
+    workflows: ["Train public painting-defect YOLO candidate"]
+    types: [completed]
+permissions:
+  contents: write
+  actions: read
+jobs:
+  verify:
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.head_repository.full_name == github.repository) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - name: Choose training run
+        env:
+          RUN_FROM_EVENT: ${{ github.event.workflow_run.id }}
+          RUN_FROM_INPUT: ${{ inputs.training_run }}
+        run: |
+          RUN_ID="${RUN_FROM_INPUT:-$RUN_FROM_EVENT}"
+          if ! [[ "$RUN_ID" =~ ^[0-9]+$ ]]; then exit 1; fi
+          echo "RUN_ID=$RUN_ID" >> "$GITHUB_ENV"
+      - name: Download candidate metrics & model from Actions
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh run download "$RUN_ID" -n real-public-paint-yolo-metrics-and-model -D paint-artifact
+      - name: Require approved metrics before ONNX validation
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data=json.loads(Path("paint-artifact/metrics.json").read_text())
+          assert data["technical_gate_passed"], "Model did not pass quality thresholds"
+          assert data["ap50"]>=0.4 and data["recall"]>=0.5
+          PY
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install lightweight ONNX CPU verifier
+        run: pip install 'onnxruntime>=1.20,<2' 'onnx>=1.16,<2' 'numpy>=1.26,<3'
+      - name: Validate ONNX, checksum and license
+        run: python scripts/verify_paint_artifact.py paint-artifact
+      - name: Publish experimental version (never overwrite)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if gh release view v0.3-paint-experimental >/dev/null 2>&1; then
+            echo "Release already exists: preserving immutable model."
+            exit 0
+          fi
+          gh release create v0.3-paint-experimental             paint-artifact/pintura-deteriorada-candidate.onnx             paint-artifact/model.sha256             paint-artifact/metrics.json             paint-artifact/publication_report.json             --title "Paint defect YOLO (experimental, not field validated)"             --notes "Trained on real CC BY 4.0 paint-defect images; base YOLO AGPL-3.0. Technical evaluation passed on source held-out test. Not validated in Peru; not enabled for automatic credit decisions."
