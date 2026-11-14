@@ -42,7 +42,10 @@ for required in (
     'id="referencePreview"',
     '/official-construction-reference',
     'id="openRapidReport"',
-    'renderQuickResults(body)',
+    'renderQuickResults(result)',
+    '/api/quick-inspection/start',
+    '/api/quick-inspection/jobs/',
+    'pendingQuickCaseId',
     'multiclassYoloEnabled?"YOLO 5 defectos configurado"',
     '/api/model-readiness',
 ):
