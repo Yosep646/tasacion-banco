@@ -3,6 +3,7 @@ import json
 import os
 from inspection_taxonomy import CLASSES, public_capabilities
 from official_reference import reference_scenario
+from repair_pricing import build_automatic_quote
 
 LIMITATIONS = [
     "Una o dos fotos no muestran el estado completo de la vivienda.",
@@ -102,6 +103,7 @@ def summarize(assessments, photo_count, provider_available):
         "analysis_errors":errors,
         "limitations":LIMITATIONS+[detail],
         "quote": build_quote(issues),
+        "automatic_repair_scenario":build_automatic_quote(issues),
         "illustrative_construction_example":reference_scenario(60,"sierra","D",illustrative=True),
         "property_market_value":None,
         "property_market_value_reason":"Una tasación monetaria requiere área construida/terreno, ubicación, materiales comprobados, estado contrastado, comparables o valores oficiales, y revisión profesional. Dos fotos no proporcionan esos datos.",
