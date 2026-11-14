@@ -695,6 +695,12 @@ def quick_report_pdf(case_id: str, req: Request):
         draw("Mejora posible: "+item["improvement"])
     if not report["issues"]:
         draw("No se identificaron hallazgos; esto no certifica buen estado.")
+    if report.get("experimental_issues"):
+        draw("ALERTAS EXPERIMENTALES - EXCLUIDAS DE LA TASACIÓN",True)
+        for item in report["experimental_issues"]:
+            draw(item["shot"]+" - "+item["label"]+" (requiere revisión profesional)")
+            draw(item["improvement"])
+        draw("Alertas sin impacto automático en condición, costos o valoración.")
     draw("COTIZACIÓN DE MEJORAS",True)
     draw(report["quote"]["explanation"])
     for item in report["quote"]["items"]:
