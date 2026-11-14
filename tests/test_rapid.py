@@ -161,3 +161,57 @@ def test_optional_paint_detector_integrates_only_when_enabled(monkeypatch):
     assert data["property_market_value"] is None
     assert data["human_review_required"]
     assert client.get("/api/cases/"+data["case_id"]+"/quick-report.pdf").status_code==200
+
+
+def test_official_reference_sierra_figures_and_example():
+    from official_reference import reference_scenario, official_unit_values
+    values=official_unit_values()
+    assert values["zones"]["sierra"]["D"]==1027.37
+    example=reference_scenario(60,"sierra","D",illustrative=True)
+    assert example["construction_reference_pen"]==61642.20
+    assert example["market_value_pen"] is None
+    assert example["land_value_pen"] is None
+    assert example["area_user_reported"] is False
+    assert "SIMULACIÓN" in example["disclaimer"]
+    import pytest
+    with pytest.raises(ValueError):
+        reference_scenario(0,"sierra","D")
+    with pytest.raises(ValueError):
+        reference_scenario(60,"sierra","Z")
+
+
+def test_official_construction_reference_api_persists_in_pdf(monkeypatch):
+    monkeypatch.setenv("YOLO_CPU_ENABLED","1")
+    monkeypatch.setenv("YOLO_DEFECT5_ENABLED","0")
+    monkeypatch.setenv("YOLO_PAINT_ENABLED","0")
+    monkeypatch.delenv("OPENAI_API_KEY",raising=False)
+    monkeypatch.setattr(app,"predict_cracks",stub_yolo)
+    from fastapi.testclient import TestClient
+    assert TestClient(app.app).get("/api/official-construction-values").status_code==401
+    client=client_login()
+    catalog=client.get("/api/official-construction-values")
+    assert catalog.status_code==200
+    assert catalog.json()["zones"]["sierra"]["D"]==1027.37
+    created=client.post("/api/quick-inspection",
+        files={"exterior":("foto.jpg",photo(),"image/jpeg")})
+    assert created.status_code==201,created.text
+    cid=created.json()["case_id"]
+    assert created.json()["illustrative_construction_example"]["construction_reference_pen"]==61642.20
+    assert created.json()["property_market_value"] is None
+    result=client.post("/api/cases/"+cid+"/official-construction-reference",
+        json={"built_area_m2":60,"zone":"sierra","grade":"D"})
+    assert result.status_code==200,result.text
+    assert result.json()["construction_reference_pen"]==61642.20
+    assert result.json()["market_value_pen"] is None
+    assert result.json()["land_value_pen"] is None
+    stored=client.get("/api/cases/"+cid+"/quick-report")
+    assert stored.status_code==200
+    assert stored.json()["official_construction_reference"]["construction_reference_pen"]==61642.20
+    assert stored.json()["property_market_value"] is None
+    pdf=client.get("/api/cases/"+cid+"/quick-report.pdf")
+    assert pdf.status_code==200
+    assert pdf.content.startswith(b"%PDF")
+    assert len(pdf.content)>2500
+    invalid=client.post("/api/cases/"+cid+"/official-construction-reference",
+        json={"built_area_m2":60,"zone":"sierra","grade":"A"})
+    assert invalid.status_code==422
