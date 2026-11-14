@@ -1,0 +1,81 @@
+{
+  "updated_on": "2026-11-14",
+  "status": "candidate_sources_not_downloaded",
+  "note": "Las licencias se muestran como declara la fuente; verificar procedencia, permisos de terceros y equivalencia visual antes de importar.",
+  "sources": [
+    {
+      "name": "Defect Images - Property",
+      "url": "https://universe.roboflow.com/buildinghealth/defect-images-property-ssd5a",
+      "provider": "Roboflow Universe",
+      "workspace": "buildinghealth",
+      "project": "defect-images-property-ssd5a",
+      "license_declared": "CC BY 4.0",
+      "published_classes": [
+        "cracked door",
+        "defected door",
+        "Floor Damage",
+        "Mold",
+        "Wall crack",
+        "Wall Hole",
+        "Water Damage",
+        "Window crack"
+      ],
+      "candidate_for": [
+        "piso_roto"
+      ],
+      "annotations": "object_detection",
+      "review_required": "Floor Damage puede incluir daños no equivalentes a baldosas rotas; inspeccionar las cajas e identificar la versión del dataset."
+    },
+    {
+      "name": "Property_defects",
+      "url": "https://universe.roboflow.com/image-uhpot/property_defects",
+      "provider": "Roboflow Universe",
+      "workspace": "image-uhpot",
+      "project": "property_defects",
+      "license_declared": "Public Domain (declarado por publicación)",
+      "published_classes": [
+        "mold",
+        "floor_damage",
+        "Hole in the wall",
+        "wall_crack",
+        "window_crack"
+      ],
+      "candidate_for": [
+        "piso_roto"
+      ],
+      "annotations": "object_detection",
+      "review_required": "Revisar la licencia real y la correspondencia floor_damage con piso_roto. No inferir pisos rotos si no se ven fracturas."
+    },
+    {
+      "name": "Paint Defects - mirrored CC BY 4.0",
+      "url": "https://huggingface.co/datasets/imaadd05/paint-defects-roboflow-main",
+      "provider": "Hugging Face",
+      "license_declared": "CC BY 4.0",
+      "published_classes": [
+        "crack",
+        "rust",
+        "dirt",
+        "delamination",
+        "efflorescence",
+        "exposed rebar",
+        "spalling",
+        "paint_defect",
+        "scaling"
+      ],
+      "candidate_for": [
+        "pintura_deteriorada"
+      ],
+      "annotations": "COCO bounding boxes",
+      "review_required": "Convertir COCO a YOLO y revisar que paint_defect sea la clase correcta; los tipos de superficies varían."
+    }
+  ],
+  "missing_sources_for": [
+    "pared_sin_tarrajeo",
+    "pared_tarrajeada",
+    "ladrillo_expuesto",
+    "puerta_visible",
+    "hueco_sin_puerta",
+    "calamina_visible",
+    "techo_concreto_visible"
+  ]
+}
