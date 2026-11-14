@@ -12,6 +12,7 @@ LIMITATIONS = [
 def summarize(assessments, photo_count, provider_available):
     materials = []
     issues = []
+    experimental_issues = []
     notes = []
     models = []
     errors = []
@@ -38,6 +39,22 @@ def summarize(assessments, photo_count, provider_available):
                     "label":CLASSES.get(str(issue.get("category","")),{ }).get("label",str(issue.get("category",""))),
                     "urgency":CLASSES.get(str(issue.get("category","")),{ }).get("urgency","revisar")
                 })
+        for candidate in result.get("experimental_issues",[]):
+            if not isinstance(candidate,dict):
+                continue
+            category=str(candidate.get("category",""))[:120]
+            experimental_issues.append({
+                "category":category,
+                "label":CLASSES.get(category,{}).get("label",category),
+                "shot":a["shot"],
+                "confidence":candidate.get("confidence"),
+                "description":str(candidate.get("description",""))[:500],
+                "improvement":str(candidate.get("improvement",""))[:300],
+                "evidence_id":a["evidence_id"],
+                "review_status":"experimental_unverified",
+                "affects_quote":False,
+                "affects_condition":False,
+            })
         notes.append({"shot":a["shot"],"summary":result.get("summary",""),
                       "evidence_id":a["evidence_id"],
                       "annotated_url":result.get("annotated_url")})
@@ -75,6 +92,7 @@ def summarize(assessments, photo_count, provider_available):
         "condition":condition,
         "materials":materials,
         "issues":issues,
+        "experimental_issues":experimental_issues,
         "improvements":improvements,
         "inspection_priority":alert_priority,
         "capabilities":public_capabilities(multiclass),
