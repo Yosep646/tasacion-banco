@@ -32,23 +32,32 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: gh run download "$RUN_ID" -n real-public-paint-yolo-metrics-and-model -D paint-artifact
-      - name: Require approved metrics before ONNX validation
+      - name: Evaluate quality gate (do not publish weak models)
+        id: quality
         run: |
           python - <<'PY'
-          import json
+          import json,os
           from pathlib import Path
           data=json.loads(Path("paint-artifact/metrics.json").read_text())
-          assert data["technical_gate_passed"], "Model did not pass quality thresholds"
-          assert data["ap50"]>=0.4 and data["recall"]>=0.5
+          passed=(data.get("technical_gate_passed") is True
+                  and data.get("ap50",0)>=0.4 and data.get("recall",0)>=0.5)
+          with open(os.environ["GITHUB_OUTPUT"],"a") as out:
+              out.write("passed="+("true" if passed else "false")+"\n")
+          if not passed:
+              print("MODEL NOT PUBLISHED: recall/AP gate failed. This is an expected quality rejection, not a pipeline error.")
           PY
       - uses: actions/setup-python@v5
+        if: steps.quality.outputs.passed == 'true'
         with:
           python-version: '3.12'
       - name: Install lightweight ONNX CPU verifier
+        if: steps.quality.outputs.passed == 'true'
         run: pip install 'onnxruntime>=1.20,<2' 'onnx>=1.16,<2' 'numpy>=1.26,<3'
       - name: Validate ONNX, checksum and license
+        if: steps.quality.outputs.passed == 'true'
         run: python scripts/verify_paint_artifact.py paint-artifact
       - name: Publish experimental version (never overwrite)
+        if: steps.quality.outputs.passed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
