@@ -13,6 +13,7 @@ from yolo_service import predict_findings, get_model_configuration
 from vision_service import analyze_photo, evaluate_condition, guided_shots, simulate_credit
 from yolo_onnx import predict_cracks
 from yolo_defects import detect_defects
+from yolo_paint import detect_paint
 from inspection_taxonomy import public_capabilities, improvement_for
 from valuation_reference import estimate_property_scenario
 from rapid_service import summarize
@@ -22,7 +23,7 @@ from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
-from PIL import Image, UnidentifiedImageError
+from PIL import Image, ImageDraw, UnidentifiedImageError
 from pydantic import BaseModel, Field
 
 ROOT = Path(__file__).resolve().parent
@@ -195,7 +196,7 @@ class ReviewIn(BaseModel):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "tasacion-visual", "models": {"vivienda_fisuras": bool(os.getenv("YOLO_VIVIENDA_WEIGHTS")), "generico": bool(os.getenv("YOLO_WEIGHTS"))}, "vision_enabled": bool(os.getenv("OPENAI_API_KEY")), "yolo_cpu_enabled": os.getenv("YOLO_CPU_ENABLED") == "1", "multiclass_yolo_enabled": os.getenv("YOLO_DEFECT5_ENABLED") == "1"}
+    return {"status": "ok", "service": "tasacion-visual", "models": {"vivienda_fisuras": bool(os.getenv("YOLO_VIVIENDA_WEIGHTS")), "generico": bool(os.getenv("YOLO_WEIGHTS"))}, "vision_enabled": bool(os.getenv("OPENAI_API_KEY")), "yolo_cpu_enabled": os.getenv("YOLO_CPU_ENABLED") == "1", "multiclass_yolo_enabled": os.getenv("YOLO_DEFECT5_ENABLED") == "1", "paint_experimental_enabled": os.getenv("YOLO_PAINT_ENABLED") == "1" and len(os.getenv("YOLO_PAINT_SHA256","")) == 64}
 
 @app.get("/api/model-capabilities")
 def model_capabilities(req: Request):
@@ -490,6 +491,49 @@ async def quick_inspection(req: Request, exterior: UploadFile = File(...),
                         result["limitations"].append("Modelo multiclase no disponible: se aplicó solo detector de fisuras.")
                     except (OSError,ValueError,RuntimeError,ImportError):
                         pass
+        # Optional specialized paint model. Strictly gated by a pinned checksum and
+        # deliberately disabled until its real holdout metrics meet acceptance criteria.
+        if can_yolo and os.getenv("YOLO_PAINT_ENABLED")=="1":
+            try:
+                paint_issues, paint_overlay = await run_in_threadpool(detect_paint,str(image_path))
+                if result is None:
+                    result={
+                        "condition":"requiere_mejoras" if paint_issues else "no_determinable",
+                        "summary":"Análisis experimental de pintura completado.",
+                        "materials":[],"issues":[],"limitations":[],
+                        "method":"yolo_paint_experimental",
+                    }
+                if paint_issues:
+                    for issue in paint_issues:
+                        result["issues"].append({
+                            "category":issue["category"],
+                            "severity":"no_determinada",
+                            "description":issue["description"]+" (confianza "+str(round(issue["confidence"]*100))+"%)",
+                            "improvement":issue["improvement"],
+                            "confidence":issue["confidence"],
+                            "box":issue["box"],
+                            "origin":"yolo_paint_experimental",
+                        })
+                    result["condition"]="requiere_mejoras"
+                    result["method"] += "+yolo_paint_experimental"
+                overlay_file=UPLOADS/(photo["id"]+"-yolo.jpg")
+                if overlay_file.exists():
+                    with Image.open(overlay_file) as existing:
+                        combined=existing.convert("RGB")
+                    drawer=ImageDraw.Draw(combined)
+                    for issue in paint_issues:
+                        box=tuple(issue["box"])
+                        drawer.rectangle(box,outline="#e69922",width=max(2,int(combined.width/350)))
+                        drawer.text((box[0],max(0,box[1]-14)),"Pintura "+str(round(issue["confidence"]*100))+"%",fill="#b56a13")
+                    combined.save(overlay_file,format="JPEG",quality=85)
+                else:
+                    paint_overlay.save(overlay_file,format="JPEG",quality=85)
+                result["annotated_url"]="/api/evidence/"+photo["id"]+"/yolo-overlay"
+                result["limitations"].append(
+                    "Modelo experimental de deterioro de pintura: requiere verificación "
+                    "en viviendas reales de Perú y no debe usarse para aprobar créditos.")
+            except (OSError,ValueError,RuntimeError,ImportError,IndexError,TypeError) as exc:
+                error=(error+"; " if error else "")+"El detector experimental de pintura no estuvo disponible"
         if result is None:
             result={"condition":"no_determinable","summary":"No se pudo completar la inferencia visual.",
                     "materials":[],"issues":[],"limitations":["No hay resultados de IA verificados."],
