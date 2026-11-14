@@ -1,3 +1,14 @@
+
+## Corrección: valor de edificación en soles (14 noviembre 2026)
+
+Tras subir 1–2 fotos, el informe ya presenta una **SIMULACIÓN DIDÁCTICA AUTOMÁTICA** en soles para explicar el cálculo; **no es el precio de la vivienda fotografiada**. El ejemplo predeterminado es Sierra, 60 m² y categoría D uniforme, igual a **S/ 61 642,20**, conforme a la tabla de valores unitarios de edificación CAP **noviembre 2026**.
+
+Para obtener un monto referido al inmueble analizado, introduce tres datos mínimos en la misma pantalla: **área techada real en m², zona aplicable (Lima/Callao, Costa, Sierra o Selva), categoría constructiva de simulación (C–F)**. La API `POST /api/cases/{id}/official-construction-reference` calcula la suma de las siete partidas oficiales × área, guarda el resultado y lo muestra en el mismo PDF; el catálogo está en `GET /api/official-construction-values`. Puedes volver a abrir el informe desde un expediente anterior sin volver a subir fotos.
+
+**Limitación esencial:** se usa una sola categoría para las siete partidas como escenario simplificado, **sin que YOLO verifique esa categoría**. Una tasación oficial exige categorías correctas **por partida**, área medida, depreciación, verificación de ubicación, valor del terreno y comparables. El monto visualizado **no es valor comercial, importe de garantía ni crédito sugerido** y no cambia por el mero número de fisuras detectadas. Las dos fotos no permiten calcular metros cuadrados reales por sí solas.
+
+Fuente: cuadros oficiales publicados por el [Colegio de Arquitectos del Perú](https://cap.org.pe/valores-unitarios-oficiales-de-edificaciones/) con vigencia del 1 al 30 de noviembre de 2026. Los importes deben actualizarse cuando cambien las tablas.
+
 # Tasación Visual Rápida — Asistente para microcrédito hipotecario o prendario
 
 ## Inspección multiclase y tasación — actualización 2026-11-13
