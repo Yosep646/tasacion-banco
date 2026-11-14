@@ -298,7 +298,7 @@ def model_readiness(req: Request):
             "state":("paused_quota_limited" if os.getenv("OPENAI_API_KEY") and not _automatic_vision_enabled()
                      else "configured_unverified" if os.getenv("OPENAI_API_KEY")
                      else "awaiting_rotated_secret"),
-            "model":os.getenv("VISION_MODEL","gpt-4.1-mini"),
+            "model":os.getenv("VISION_MODEL","gpt-5-mini"),
             "note":"Se requiere prueba real autenticada. Nunca enviar claves por chat ni almacenarlas en GitHub."
         },
         "surface_segmentation":{"configured":surfaces_enabled,"state":_model_cache_status(surface_model_path(),SURFACE_MODEL_SHA256) if surfaces_enabled else "disabled","classes":["pared","piso","techo"],"model":"SegFormer-B0 ADE20K ONNX INT8","note":"Áreas de píxeles, no m² físicos; requiere revisión visual."},
@@ -359,7 +359,7 @@ def multimodal_selftest(req: Request):
             }) from None
     return {
         "status":"provider_response_validated",
-        "model":os.getenv("VISION_MODEL","gpt-4.1-mini"),
+        "model":os.getenv("VISION_MODEL","gpt-5-mini"),
         "response_fields":sorted(result.keys()),
         "warning":"Prueba técnica con imagen sintética. No valida resultados sobre viviendas reales."
     }
