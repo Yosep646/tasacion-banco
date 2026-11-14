@@ -21,6 +21,8 @@ from official_reference import official_unit_values, reference_scenario
 from rapid_service import summarize
 from repair_pricing import build_automatic_quote
 from starlette.concurrency import run_in_threadpool
+from fastapi import BackgroundTasks
+from datetime import timedelta
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
@@ -87,6 +89,10 @@ def init_db():
           state TEXT NOT NULL DEFAULT 'pendiente', result_json TEXT NOT NULL,
           reviewer TEXT, reviewed_at TEXT, created_at TEXT NOT NULL);
         CREATE INDEX IF NOT EXISTS visual_assessments_case_idx ON visual_assessments(case_id,evidence_id,created_at);
+        CREATE TABLE IF NOT EXISTS quick_jobs (
+          case_id TEXT PRIMARY KEY REFERENCES cases(id) ON DELETE CASCADE,
+          status TEXT NOT NULL, updated_at TEXT NOT NULL,
+          error TEXT NOT NULL DEFAULT '');
         CREATE TABLE IF NOT EXISTS rapid_reports (\n          case_id TEXT PRIMARY KEY REFERENCES cases(id) ON DELETE CASCADE,\n          result_json TEXT NOT NULL, created_at TEXT NOT NULL);\n        CREATE TABLE IF NOT EXISTS audit (
           id INTEGER PRIMARY KEY AUTOINCREMENT, actor TEXT NOT NULL, action TEXT NOT NULL,
           case_id TEXT, at TEXT NOT NULL);
@@ -553,7 +559,7 @@ async def _save_quick_photo(case_id: str, file: UploadFile, shot: str, actor: st
             if image.width * image.height > 32_000_000:
                 raise ValueError("Imagen demasiado grande")
             processed = image.convert("RGB")
-            processed.thumbnail((1600, 1600))
+            processed.thumbnail((960, 960) if os.getenv("TASACION_LOW_MEMORY_MODE")=="1" else (1600, 1600))
     except (UnidentifiedImageError, OSError, ValueError) as exc:
         raise HTTPException(422, "Imagen inválida") from exc
     eid = str(uuid.uuid4())
