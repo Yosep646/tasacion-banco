@@ -134,3 +134,28 @@ def test_financial_scenario_endpoint_updates_pdf(monkeypatch):
     assert report["documented_valuation_scenario"]["indicative_total_pen"]==120000
     pdf=client.get("/api/cases/"+cid+"/quick-report.pdf")
     assert pdf.status_code==200 and pdf.content.startswith(b"%PDF")
+
+
+def test_optional_paint_detector_integrates_only_when_enabled(monkeypatch):
+    monkeypatch.setenv("YOLO_CPU_ENABLED","1")
+    monkeypatch.delenv("OPENAI_API_KEY",raising=False)
+    monkeypatch.setenv("YOLO_PAINT_ENABLED","1")
+    monkeypatch.setenv("YOLO_PAINT_SHA256","a"*64)
+    monkeypatch.setattr(app,"predict_cracks",lambda p:([],Image.new("RGB",(80,80))))
+    monkeypatch.setattr(app,"detect_paint",lambda p:([
+        {"category":"pintura_deteriorada","confidence":0.87,
+         "description":"Posible daño de pintura","box":[5,5,40,30],
+         "improvement":"Inspeccionar humedad y repintar"}
+    ],Image.new("RGB",(80,80))))
+    client=client_login()
+    response=client.post("/api/quick-inspection",
+        files={"exterior":("fachada.jpg",photo(),"image/jpeg")})
+    assert response.status_code==201,response.text
+    data=response.json()
+    assert "pintura_deteriorada" in [x["category"] for x in data["issues"]]
+    assert data["image_summaries"][0]["annotated_url"]
+    assert "yolo_paint_experimental" in data["models"][0]
+    assert data["quote"]["total_pen"] is None
+    assert data["property_market_value"] is None
+    assert data["human_review_required"]
+    assert client.get("/api/cases/"+data["case_id"]+"/quick-report.pdf").status_code==200
