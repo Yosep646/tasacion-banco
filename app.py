@@ -988,6 +988,71 @@ def automatic_inspection(case_id: str, evidence_id: str, req: Request):
     return {"id":analysis_id,"state":"pendiente","result":result,
             "warning":"La IA solo identifica posibles fisuras. Ninguna deteccion valida una tasacion ni aprueba creditos."}
 
+@app.post("/api/cases/{case_id}/segment-surfaces/{evidence_id}")
+async def segment_case_surfaces(case_id: str, evidence_id: str, req: Request):
+    """Independent scene segmentation; never fabricate physical area or damage."""
+    actor=auth(req,write=True)
+    case=require_case(case_id)
+    if case["asset_type"]!="vivienda":
+        raise HTTPException(422,"Solo disponible para fotografías de viviendas")
+    if os.getenv("SURFACE_SEGMENTATION_ENABLED")!="1":
+        raise HTTPException(503,"Segmentación de superficies deshabilitada")
+    with db() as con:
+        photo=con.execute("SELECT filename FROM evidence WHERE id=? AND case_id=?",
+                          (evidence_id,case_id)).fetchone()
+    if not photo:
+        raise HTTPException(404,"La foto no pertenece al expediente")
+    try:
+        surfaces,overlay,mask=await run_in_threadpool(
+            segment_surfaces,str(UPLOADS/photo["filename"]))
+    except (OSError,ValueError,RuntimeError,ImportError) as exc:
+        raise HTTPException(503,"El modelo de segmentación no pudo procesar la imagen") from exc
+    overlay.save(UPLOADS/(evidence_id+"-surfaces.jpg"),format="JPEG",quality=87)
+    mask.save(UPLOADS/(evidence_id+"-surface-mask.png"),format="PNG")
+    surfaces["overlay_url"]="/api/evidence/"+evidence_id+"/surface-overlay"
+    surfaces["mask_url"]="/api/evidence/"+evidence_id+"/surface-mask"
+    result={"condition":"no_determinable",
+            "summary":"Superficies segmentadas; verificar límites de pared, piso y techo.",
+            "materials":[],"issues":[],"method":"segformer_b0_ade20k_onnx",
+            "surfaces":surfaces,"limitations":surfaces["limitations"]}
+    rid=str(uuid.uuid4())
+    with db() as con:
+        con.execute("INSERT INTO visual_assessments(id,case_id,evidence_id,state,result_json,created_at) VALUES(?,?,?,?,?,?)",
+                    (rid,case_id,evidence_id,"pendiente",
+                     json.dumps(result,ensure_ascii=False),now()))
+        con.execute("UPDATE cases SET updated_at=? WHERE id=?",(now(),case_id))
+    log(actor,"segmentar_superficies",case_id)
+    return {"id":rid,"state":"pendiente","result":result}
+
+
+@app.get("/api/evidence/{evidence_id}/surface-overlay")
+def surface_overlay(evidence_id: str, req: Request):
+    auth(req)
+    with db() as con:
+        photo=con.execute("SELECT id FROM evidence WHERE id=?",(evidence_id,)).fetchone()
+    if not photo:
+        raise HTTPException(404,"Fotografía no encontrada")
+    path=UPLOADS/(evidence_id+"-surfaces.jpg")
+    if not path.is_file():
+        raise HTTPException(404,"Ejecuta antes la segmentación de superficies")
+    return FileResponse(path,media_type="image/jpeg",
+                        headers={"Cache-Control":"private, no-store"})
+
+
+@app.get("/api/evidence/{evidence_id}/surface-mask")
+def surface_mask_image(evidence_id: str, req: Request):
+    auth(req)
+    with db() as con:
+        photo=con.execute("SELECT id FROM evidence WHERE id=?",(evidence_id,)).fetchone()
+    if not photo:
+        raise HTTPException(404,"Fotografía no encontrada")
+    path=UPLOADS/(evidence_id+"-surface-mask.png")
+    if not path.is_file():
+        raise HTTPException(404,"Ejecuta antes la segmentación de superficies")
+    return FileResponse(path,media_type="image/png",
+                        headers={"Cache-Control":"private, no-store"})
+
+
 @app.get("/api/evidence/{evidence_id}/yolo-overlay")
 def yolo_overlay(evidence_id: str, req: Request):
     auth(req)
