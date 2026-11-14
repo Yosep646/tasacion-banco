@@ -69,7 +69,7 @@ for required in (
     assert required in html, "Falta módulo compacto o captura de foto: " + required
 assert 'class="result-two-col"' not in html[html.index('function renderQuickResults(result){'):]
 assert 'class="result-improvements"' not in html[html.index('function renderQuickResults(result){'):]
-assert "cameraStream.getTracks().forEach(track=>track.stop())" in html
+assert "stream.getTracks().forEach(track=>track.stop())" in html
 assert html.count('id="exteriorFile"') == 1
 assert html.count('id="interiorFile"') == 1
 
