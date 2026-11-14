@@ -1,0 +1,40 @@
+name: Train public painting-defect YOLO candidate
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/train_public_paint.py'
+      - 'tests/test_public_paint.py'
+      - '.github/workflows/train-public-paint.yml'
+permissions:
+  contents: read
+jobs:
+  train-public-paint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install CPU dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install --index-url https://download.pytorch.org/whl/cpu torch torchvision
+          pip install 'ultralytics>=8.4,<9' 'huggingface_hub>=0.30,<2' 'onnx>=1.16,<2' 'Pillow>=10,<13'
+      - name: Verify COCO mapping and data safety
+        run: python -m unittest discover -s tests -p test_public_paint.py -v
+      - name: Download real licensed dataset, train and test
+        run: |
+          python scripts/train_public_paint.py --epochs 8 --max-train 260 --imgsz 320 --batch 8 --output /tmp/paint-yolo-training
+      - name: Persist metrics, provenance, and trained candidate
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: real-public-paint-yolo-metrics-and-model
+          path: |
+            /tmp/paint-yolo-training/metrics.json
+            /tmp/paint-yolo-training/data/provenance.json
+            /tmp/paint-yolo-training/pintura-deteriorada-candidate.onnx
+          if-no-files-found: warn
+          retention-days: 14
