@@ -17,8 +17,8 @@ from PIL import Image
 SAMPLES = (
     ("Exterior", "https://upload.wikimedia.org/wikipedia/commons/6/62/House_facade_2023.jpg",
      "https://commons.wikimedia.org/wiki/File:House_facade_2023.jpg"),
-    ("Interior", "https://upload.wikimedia.org/wikipedia/commons/thumb/a/aa/Home_Interior.jpg/960px-Home_Interior.jpg",
-     "https://commons.wikimedia.org/wiki/File:Home_Interior.jpg"),
+    ("Interior", "https://upload.wikimedia.org/wikipedia/commons/7/73/Living_Room_Interior_Designer_-_Picker_Online.jpg",
+     "https://commons.wikimedia.org/wiki/File:Living_Room_Interior_Designer_-_Picker_Online.jpg"),
 )
 
 
