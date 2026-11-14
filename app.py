@@ -246,6 +246,12 @@ def model_readiness(req: Request):
     paint_enabled=(os.getenv("YOLO_CPU_ENABLED")=="1" and os.getenv("YOLO_PAINT_ENABLED")=="1"
                    and len(paint_sha)==64 and all(c in "0123456789abcdef" for c in paint_sha))
     return {
+        "multimodal_vision":{
+            "configured":bool(os.getenv("OPENAI_API_KEY")),
+            "state":"configured_unverified" if os.getenv("OPENAI_API_KEY") else "awaiting_rotated_secret",
+            "model":os.getenv("VISION_MODEL","gpt-4.1-mini"),
+            "note":"Se requiere prueba real autenticada. Nunca enviar claves por chat ni almacenarlas en GitHub."
+        },
         "surface_segmentation":{"configured":surfaces_enabled,"state":_model_cache_status(surface_model_path(),SURFACE_MODEL_SHA256) if surfaces_enabled else "disabled","classes":["pared","piso","techo"],"model":"SegFormer-B0 ADE20K ONNX INT8","note":"Áreas de píxeles, no m² físicos; requiere revisión visual."},
         "yolo_defect5":{
             "configured":defect5_enabled,
@@ -269,6 +275,35 @@ def model_readiness(req: Request):
         "excluded_classes":["piso_roto","puerta_visible","hueco_sin_puerta","pared_sin_tarrajeo",
                             "pared_tarrajeada","ladrillo_expuesto","calamina_visible","techo_concreto_visible"],
         "note":"Nunca interpretar ausencia de una detección como confirmación de buen estado.",
+    }
+
+
+@app.post("/api/multimodal-selftest")
+def multimodal_selftest(req: Request):
+    """Admin-only opt-in connectivity check; no customer photo, no keys in output.
+
+    This request uses a tiny synthetic image and can incur provider charges.
+    It is never called by health checks, boot, or automatic deployment.
+    """
+    actor=auth(req,write=True)
+    if actor!="administrador":
+        raise HTTPException(403,"Prueba reservada al administrador")
+    if not os.getenv("OPENAI_API_KEY"):
+        raise HTTPException(503,"Configura una NUEVA OPENAI_API_KEY como secreto en Render")
+    import tempfile
+    with tempfile.TemporaryDirectory(prefix="tasacion-vision-check-") as folder:
+        path=Path(folder)/"test.jpg"
+        sample=Image.new("RGB",(512,512),(215,213,209))
+        sample.save(path,format="JPEG")
+        try:
+            result=analyze_photo(str(path),"Imagen neutra de prueba","vivienda")
+        except (RuntimeError,ValueError,OSError,json.JSONDecodeError) as exc:
+            raise HTTPException(503,"La verificación con el proveedor multimodal falló") from exc
+    return {
+        "status":"provider_response_validated",
+        "model":os.getenv("VISION_MODEL","gpt-4.1-mini"),
+        "response_fields":sorted(result.keys()),
+        "warning":"Prueba técnica con imagen sintética. No valida resultados sobre viviendas reales."
     }
 
 
