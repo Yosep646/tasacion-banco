@@ -411,7 +411,7 @@ body{background:#f1f5fc}
 .model-pending{background:#fff0dc;color:#8b6328}
 .model-coverage p{font-size:12px;line-height:1.6;color:#6a7d98}
 @media(max-width:670px){.model-coverage-grid{grid-template-columns:1fr}}
-</style></head><body>
+.one-model-ready{font-size:11px;line-height:1.6;color:#657994;margin:12px 0 0}</style></head><body>
 <div id="loginPanel" class="card auth hide"><div class="brand"><span class="logo">TV</span><div><h1 class="heading">Tasación Visual</h1><p class="muted">Ingreso seguro al sistema</p></div></div>
 <form id="loginForm"><div class="field"><label>Usuario</label><input id="user" autocomplete="username" required placeholder="administrador"></div><div class="field"><label>Contraseña</label><input id="pass" type="password" autocomplete="current-password" required></div><button class="primary" style="width:100%">Ingresar</button></form><p id="loginError" class="danger"></p></div>
 <div id="mainPanel" class="shell hide"><div class="layout">
@@ -423,14 +423,14 @@ body{background:#f1f5fc}
 <main class="main-area"><div class="card" id="workspace"><div class="empty">Selecciona una evaluación para comenzar</div></div><div id="notice" role="status" aria-live="polite"></div></main>
 </div></div>
 <script>
-const $=id=>document.getElementById(id);let selected=null,current=null,tab='general',userRole='',visionEnabled=false,yoloCpuEnabled=false,multiclassYoloEnabled=false;
+const $=id=>document.getElementById(id);let selected=null,current=null,tab='general',userRole='',visionEnabled=false,yoloCpuEnabled=false,multiclassYoloEnabled=false,modelReadiness=null;
 const escapeHTML=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const money=n=>'S/ '+Number(n||0).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
 async function request(path,options={}){let r=await fetch(path,{credentials:'same-origin',...options});let x=await r.json().catch(()=>({}));if(!r.ok)throw Error(typeof x.detail==='string'?x.detail:'Error HTTP '+r.status);return x}
 const json=(method,body)=>({method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
 function note(text){$('notice').textContent=text}
 function showLogin(){ $('mainPanel').classList.add('hide');$('loginPanel').classList.remove('hide')}
-async function boot(){try{let me=await request('/api/me');userRole=me.role;$('who').textContent=me.username;$('loginPanel').classList.add('hide');$('mainPanel').classList.remove('hide');const health=await request('/health');visionEnabled=Boolean(health.vision_enabled);yoloCpuEnabled=Boolean(health.yolo_cpu_enabled);multiclassYoloEnabled=Boolean(health.multiclass_yolo_enabled);await refresh()}catch(e){showLogin()}}
+async function boot(){try{let me=await request('/api/me');userRole=me.role;$('who').textContent=me.username;$('loginPanel').classList.add('hide');$('mainPanel').classList.remove('hide');const health=await request('/health');visionEnabled=Boolean(health.vision_enabled);yoloCpuEnabled=Boolean(health.yolo_cpu_enabled);multiclassYoloEnabled=Boolean(health.yolo_cpu_enabled&&health.multiclass_yolo_enabled);modelReadiness=await request("/api/model-readiness").catch(()=>null);await refresh()}catch(e){showLogin()}}
 $('loginForm').onsubmit=async ev=>{ev.preventDefault();try{await request('/api/login',json('POST',{username:$('user').value,password:$('pass').value}));$('pass').value='';await boot()}catch(e){$('loginError').textContent=e.message}};
 $('logout').onclick=async()=>{await request('/api/logout',{method:'POST'});showLogin()};
 
@@ -456,7 +456,9 @@ function renderQuickStart(){
  '<div class="one-feature"><span>▤</span><div><strong>Informe inmediato</strong><p>Resultados y recomendaciones en PDF.</p></div></div>'+
  '<div class="one-feature"><span>◇</span><div><strong>Estimación responsable</strong><p>Análisis referencial, sin sustituir una tasación profesional.</p></div></div></section>'+
  '<section class="one-info-card one-status-card"><h3><span class="one-info-icon">▥</span> Estado del análisis</h3>'+
- '<div class="one-status-chips"><span class="'+(yoloCpuEnabled?"one-status-good":"")+'">'+(multiclassYoloEnabled?"✓ YOLO 5 defectos":yoloCpuEnabled?"✓ YOLO fisuras":"YOLO no disponible")+'</span><span>▧ 1–2 fotos</span></div></section>'+
+ '<div class="one-status-chips"><span class="'+(yoloCpuEnabled?"one-status-good":"")+'">'+(multiclassYoloEnabled?"YOLO 5 defectos configurado":yoloCpuEnabled?"YOLO fisuras configurado":"YOLO no disponible")+'</span><span>▧ 1–2 fotos</span></div><p class="one-model-ready">'+
+ (modelReadiness?.yolo_defect5?.state==="cached_verified"?"Modelo multiclase descargado; inferencia pendiente de cada fotografía.":multiclassYoloEnabled?"Modelo multiclase configurado; se descargará y verificará al analizar la primera imagen.":yoloCpuEnabled?"Detector de fisuras configurado; los demás daños necesitan un modelo verificado.":"Sin YOLO activo.")+
+ '</p></section>''+
  '<section class="one-info-card one-model-card"><h3><span class="one-info-icon">▱</span> Alcance del modelo</h3><p>YOLO multiclase reconoce cinco defectos; pisos, puertas y tarrajeo todavía requieren entrenamiento validado. La validación final corresponde a un profesional.</p></section></aside></div>';
  const form=$('quickForm');
  function updatePreview(kind){
