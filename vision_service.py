@@ -169,7 +169,7 @@ def analyze_photo(image_path, shot, asset_type):
     raw = Path(image_path).read_bytes()
     if len(raw) > 8 * 1024 * 1024:
         raise ValueError("Imagen excede el limite permitido")
-    model = os.getenv("VISION_MODEL", "gpt-4.1-mini").strip()
+    model = os.getenv("VISION_MODEL", "gpt-5-mini").strip()
     if not model:
         raise RuntimeError("VISION_MODEL vacio")
     prompt = ("Activo: " + asset_type + ". Toma: " + shot
@@ -179,8 +179,11 @@ def analyze_photo(image_path, shot, asset_type):
                 {"type": "input_text", "text": prompt},
                 {"type": "input_image", "image_url": "data:image/jpeg;base64," +
                  base64.b64encode(raw).decode("ascii"), "detail": "low"}
-            ]}], "max_output_tokens": 1200,
+            ]}], "max_output_tokens": 3000 if model.startswith("gpt-5") else 1200,
             "text": {"format": {"type": "json_object"}}}
+    # GPT-5 mini spends some of its output-token budget on reasoning.
+    if model.startswith("gpt-5"):
+        body["reasoning"] = {"effort": "low"}
     req = urllib.request.Request("https://api.openai.com/v1/responses",
         data=json.dumps(body).encode("utf-8"),
         headers={"Authorization": "Bearer " + key, "Content-Type": "application/json"},
@@ -194,7 +197,8 @@ def analyze_photo(image_path, shot, asset_type):
         # Chat Completions image schema; never retry authentication/quota errors.
         if exc.code != 400:
             raise _classify_provider_error(exc) from None
-        initial_error = _classify_provider_error(exc)
+        # Preserve compatibility with older integrations; the fallback is
+        # attempted only after a 400 from Responses, never after quota/401.
         chat_body = {
             "model": model,
             "messages": [
@@ -208,9 +212,13 @@ def analyze_photo(image_path, shot, asset_type):
                     }},
                 ]},
             ],
-            "max_tokens": 1200,
             "response_format": {"type": "json_object"},
         }
+        if model.startswith("gpt-5"):
+            chat_body["max_completion_tokens"] = 3000
+            chat_body["reasoning_effort"] = "low"
+        else:
+            chat_body["max_tokens"] = 1200
         chat_request = urllib.request.Request(
             "https://api.openai.com/v1/chat/completions",
             data=json.dumps(chat_body).encode("utf-8"),
