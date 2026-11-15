@@ -1,4 +1,4 @@
-name: PDF capturas de todo el codigo fuente
+name: PDF capturas HTML CSS JS de la web
 
 on:
   push:
@@ -25,24 +25,24 @@ jobs:
           python-version: '3.12'
       - name: Instalar herramientas del PDF
         run: python -m pip install "Pillow>=10,<13" "reportlab>=4,<5" "pygments>=2.17,<3" "pypdf>=5,<7"
-      - name: Generar imagenes de codigo y compilar PDF
-        run: python scripts/generar_pdf_capturas_codigo.py
+      - name: Generar imagenes de interfaz HTML CSS JS y compilar PDF
+        run: python scripts/generar_pdf_web.py
       - name: Verificar PDF y recuento de paginas
         run: |
           python - <<'PY'
           from pathlib import Path
           from pypdf import PdfReader
-          path=Path("capturas-codigo-fuente-tasacion.pdf")
+          path=Path("capturas-codigo-web-tasacion.pdf")
           assert path.exists() and path.stat().st_size > 10000
           r=PdfReader(path)
-          assert len(r.pages)>40, f"PDF demasiado corto: {len(r.pages)}"
-          assert len(r.outline)>30, f"Indice incompleto: {len(r.outline)}"
+          assert len(r.pages)>12, f"PDF demasiado corto: {len(r.pages)}"
+          assert len(r.outline)>=1, f"Indice incompleto: {len(r.outline)}"
           print(f"PDF verificado: {len(r.pages)} paginas, {len(r.outline)} archivos, {path.stat().st_size:,} bytes")
           PY
       - name: Publicar PDF descargable
         uses: actions/upload-artifact@v4
         with:
-          name: PDF-CAPTURAS-CODIGO-FUENTE-TASACION
-          path: capturas-codigo-fuente-tasacion.pdf
+          name: PDF-CAPTURAS-CODIGO-WEB-TASACION
+          path: capturas-codigo-web-tasacion.pdf
           if-no-files-found: error
           retention-days: 30
