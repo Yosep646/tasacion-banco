@@ -1,0 +1,40 @@
+name: PDF cuatro capturas clave de la web
+
+on:
+  push:
+    branches:
+      - capturas-codigo-pdf-20261114
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pdf:
+    name: Crear PDF de 4 hojas
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install "Pillow>=10,<13" "reportlab>=4,<5" "pygments>=2.17,<3" "pypdf>=5,<7"
+      - name: Generar PDF de cuatro hojas
+        run: python scripts/generar_pdf_web_4_hojas.py
+      - name: Comprobar que son cuatro paginas
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from pypdf import PdfReader
+          p=Path("capturas-cuatro-hojas-tasacion.pdf")
+          assert p.exists() and p.stat().st_size>10000
+          assert len(PdfReader(p).pages)==4
+          print("PDF validado: 4 paginas; tamaño",p.stat().st_size)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PDF-4-HOJAS-CODIGO-WEB-TASACION
+          path: capturas-cuatro-hojas-tasacion.pdf
+          if-no-files-found: error
+          retention-days: 30
